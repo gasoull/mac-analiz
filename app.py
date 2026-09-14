@@ -342,6 +342,18 @@ def initials(name):
     parts=[p for p in (name or "").replace("-"," ").split() if p]
     return "".join(x[0] for x in parts[:2]).upper() or "FC"
 
+
+def best_market_detail(fixture, idx, sample_size=8):
+    rows=[]
+    for market in MARKETS:
+        r=analyze(fixture, idx, market, sample_size)
+        if r:
+            rows.append(r)
+    if not rows:
+        return None
+    rows.sort(key=lambda x:x["probability"], reverse=True)
+    return rows[0]
+
 # =========================
 # UI — MAÇKOLİK TARZI GÜNLÜK LİSTE
 # =========================
@@ -522,17 +534,6 @@ for m in raw_selected:
         filtered_selected.append(m)
 selected = filtered_selected
 
-# Güvenli fallback: filtre adı değişirse uygulama boş kalmasın.
-if not selected and raw_selected:
-    fallback = []
-    for m in raw_selected:
-        lname = clean_text(m.get("league") or "")
-        if not any(x in lname for x in ["kadin","women","u21","u 21","u19","u 19","u23","u 23","youth","genc","reserve","rezerv"]):
-            mm = dict(m)
-            mm["display_league"] = m.get("league") or "Diğer"
-            fallback.append(mm)
-    selected = fallback
-
 # Always show every football match for the selected date.
 league_order = {label:i for i,(label,_) in enumerate(LEAGUE_GROUPS)}
 selected = sorted(
@@ -572,7 +573,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.caption(f"Maçkolik ham futbol maçı: {len(raw_selected)} • Ekranda gösterilen: {len(daily_rows)}")
+st.caption(f"Maçkolik ham futbol maçı: {len(raw_selected)} • Seçili liglerde gösterilen: {len(daily_rows)}")
 
 if history_errors:
     st.caption(f"Not: Geçmiş veride {len(history_errors)} gün alınamadı; mevcut verilerle tahmin üretildi.")
@@ -596,18 +597,18 @@ def pct_html(v):
 st.markdown("""
 <style>
 .fixture-league{
-  margin-top:22px;
-  padding:13px 15px;
-  background:linear-gradient(180deg,#ffffff 0%,#f6f7f9 100%);
-  border:1px solid #dde2e8;
-  border-left:5px solid #e31d2b;
+  margin-top:24px;
+  padding:15px 17px;
+  background:linear-gradient(135deg,#ffffff 0%,#f6f7f9 100%);
+  border:1px solid #dce1e7;
+  border-left:6px solid #e31d2b;
   border-bottom:none;
-  border-radius:14px 14px 0 0;
-  font-size:1.02rem;
+  border-radius:15px 15px 0 0;
+  font-size:1.08rem;
   font-weight:950;
-  letter-spacing:-.015em;
-  color:#171a21;
-  box-shadow:0 6px 18px rgba(17,24,39,.04);
+  letter-spacing:-.02em;
+  color:#151922;
+  box-shadow:0 7px 22px rgba(17,24,39,.055);
 }
 .fixture-head,.fixture-row{
   display:grid;
@@ -654,7 +655,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if not visible_rows:
-    st.info("Bu tarihte seçili liglerde eşleşen maç bulunamadı.")
+    st.info("Bu tarihte seçtiğin liglerden maç bulunmuyor.")
     raw_leagues = sorted({m.get("league") for m in raw_selected if m.get("league")})
     with st.expander("Maçkolikten gelen gerçek lig adlarını göster"):
         st.write(f"Toplam ham futbol maçı: {len(raw_selected)}")
@@ -705,5 +706,47 @@ else:
             </div>
             """
             st.markdown(row_html, unsafe_allow_html=True)
+
+
+# =========================
+# MAÇ DETAYI
+# =========================
+if visible_rows:
+    st.markdown('<div class="title">📊 Maç Detayı</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Bir maç seç; en güçlü market ve takım form detaylarını gör.</div>', unsafe_allow_html=True)
+
+    match_labels = [
+        f'{m.get("time") or "—"} • {m.get("home","")} - {m.get("away","")} • {m.get("display_league","")}'
+        for m in visible_rows
+    ]
+    selected_match_label = st.selectbox("Maç seç", match_labels)
+    selected_match = visible_rows[match_labels.index(selected_match_label)]
+
+    detail = best_market_detail(selected_match, history_idx, sample_size)
+
+    if detail:
+        d1,d2,d3,d4 = st.columns(4)
+        d1.metric("En güçlü market", detail["market"])
+        d2.metric("Model skoru", f'%{detail["probability"]:.0f}')
+        d3.metric("KG oranı", f'%{detail["btts_rate"]:.0f}')
+        d4.metric("2.5 Üst oranı", f'%{detail["over25_rate"]:.0f}')
+
+        st.markdown(
+            f'**{selected_match["home"]} - {selected_match["away"]}**  \n'
+            f'{selected_match.get("display_league","")} • {selected_match.get("time") or "—"}'
+        )
+
+        a,b = st.columns(2)
+        with a:
+            st.markdown("**Takım formu**")
+            st.write(f'{selected_match["home"]}: %{detail["home_rate"]:.0f}')
+            st.write(f'{selected_match["away"]}: %{detail["away_rate"]:.0f}')
+            st.write(f'Ortalama toplam gol: {detail["avg_goals"]:.2f}')
+        with b:
+            st.markdown("**Model detayı**")
+            for k,v in detail["details"].items():
+                st.write(f'{k}: %{v}')
+    else:
+        st.warning("Bu maç için yeterli geçmiş veri yok.")
 
 st.caption("Tahmin yüzdeleri geçmiş maç istatistiklerinden üretilen model skorlarıdır; kesin sonuç veya bahis garantisi değildir.")

@@ -1,28 +1,19 @@
-# ONUR Tahmin v2
+# ONUR By Tahmin v5.1 — Sade Maçkolik Tarzı
 
-Tarayıcıdan çalışan profesyonel futbol maç tarama paneli.
+Bu sürümde veri motoru Maçkolik olarak kalır, tasarım sadeleştirilmiştir.
 
-## Özellikler
-- 1.5 Üst
-- 2.5 Üst
-- 3.5 Alt
-- KG Var
-- KG Yok
-- 5 / 10 / 15 maç sıralama
-- Lig bazlı filtre
-- Minimum olasılık filtresi
-- 60 / 90 / 120 / 180 günlük geçmiş veri
-- Takım başına 5–20 son maç
-- Minimum örnek filtresi
-- Sportmonks tarih aralığı sınırı için otomatik parçalı veri çekme
+## Tasarım
+- Beyaz / açık gri arayüz
+- Kırmızı vurgu
+- Büyük banner kaldırıldı
+- İnce üst marka çubuğu
+- Daha kompakt maç kartları
+- Daha az görsel kalabalık
 
-## Canlı veri
-Sportmonks Football API v3
+## Dosyalar
+- app.py
+- mackolik.py
+- analyzer.py
+- requirements.txt
 
-## Streamlit Secrets
-```toml
-SPORTMONKS_API_TOKEN = "SENIN_TOKENIN"
-```
-
-## Yayın
-Streamlit Community Cloud üzerinde `app.py` ana dosyadır.
+API anahtarı gerekmez.

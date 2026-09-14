@@ -87,29 +87,29 @@ def _to_int(v):
         return None
 
 def _is_football(row):
-    return _get(row, 23) in (1, "1", True)
+    try:
+        return _get(row, 36, [])[11] != 2
+    except Exception:
+        return True
 
 def _league_name(row):
-    meta = _get(row, 36, [])
-    for idx in (9,8,7,5):
-        try:
-            v = meta[idx]
-            if isinstance(v, str) and v.strip():
-                return v.strip()
-        except Exception:
-            pass
+    try:
+        v = _get(row, 36, [])[1]
+        if v:
+            return str(v).strip()
+    except Exception:
+        pass
     return "Diğer"
 
 def _finished_score(row):
-    h = _to_int(_get(row,29))
-    a = _to_int(_get(row,30))
+    status = str(_get(row, 6, "") or "").strip().casefold()
+    finished_values = {"ms", "bitti", "ft", "sona erdi"}
+    if status not in finished_values:
+        return None
+    h = _to_int(_get(row, 12))
+    a = _to_int(_get(row, 13))
     if h is not None and a is not None:
-        return h,a
-    minute = str(_get(row,6,"") or "").upper().strip()
-    h2 = _to_int(_get(row,12))
-    a2 = _to_int(_get(row,13))
-    if minute in ("MS","FT","BİTTİ","BITTI") and h2 is not None and a2 is not None:
-        return h2,a2
+        return h, a
     return None
 
 def normalize_match(row, day):
@@ -126,9 +126,13 @@ def normalize_match(row, day):
     live_a = _to_int(_get(row,13))
 
     finished = score is not None
+    status_text = minute.casefold()
     live = (
-        not finished and minute and any(ch.isdigit() for ch in minute)
-        and minute.upper() not in ("0","-")
+        not finished
+        and (
+            minute.isdigit()
+            or status_text in {"iy", "i̇y", "devre", "uz", "pen"}
+        )
     )
     status = "FINISHED" if finished else ("LIVE" if live else "SCHEDULED")
 
@@ -392,6 +396,8 @@ if run:
         history,h_errors=load_history(hist_start.isoformat(),hist_end.isoformat())
 
     idx=build_team_history(history)
+    finished_history = sum(1 for m in history if m.get("status") == "FINISHED")
+    st.caption(f"Geçmiş veri: {len(history)} futbol maçı • {finished_history} tamamlanmış maç • {len(idx)} takım")
     rows=[]
     for fixture in fixtures:
         r=strongest(fixture,idx,sample_size) if analysis_mode=="En Güçlü Market" else analyze(fixture,idx,analysis_mode,sample_size)

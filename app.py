@@ -180,10 +180,6 @@ with st.sidebar:
     st.caption("Yalnızca istatistiksel sıralamadır; garanti tahmin değildir.")
 
 
-st.image(
-    "onur_by_tahmin_banner.png",
-    use_container_width=True
-)
 
 # Competition coverage
 try:

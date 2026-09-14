@@ -6,6 +6,7 @@ from collections import defaultdict
 from html import escape
 import time
 import requests
+import unicodedata
 import streamlit as st
 
 # =========================
@@ -475,44 +476,95 @@ LEAGUE_GROUPS = [
 ]
 
 def clean_text(text):
-    return " ".join((text or "").casefold().replace("–","-").replace("—","-").split())
+    s = (text or "").casefold()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    for ch in ["–","—","-","/","_",".",":","(",")"]:
+        s = s.replace(ch, " ")
+    return " ".join(s.split())
 
 def wanted_league_group(league_name):
     n = clean_text(league_name)
-    if any(clean_text(x) in n for x in EXCLUDE_WORDS):
+
+    # Kadın / genç / rezerv ligleri kesin dışarıda.
+    blocked = [
+        "kadin","women","woman","female","femin",
+        "u21","u 21","u19","u 19","u23","u 23","u18","u 18",
+        "u17","u 17","u16","u 16","youth","genc","reserve",
+        "rezerv","academy","akademi"
+    ]
+    if any(x in n for x in blocked):
         return None
 
-    # First try Mackolik's actual country + competition naming.
-    country_rules = [
-        ("🇹🇷 Türkiye • Süper Lig", ["türkiye", "turkiye"], ["süper lig", "super lig"]),
-        ("🏴 İngiltere • Premier Lig", ["ingiltere", "england"], ["premier lig", "premier league"]),
-        ("🏴 İngiltere • Championship", ["ingiltere", "england"], ["championship"]),
-        ("🏴 İngiltere • 1. Lig", ["ingiltere", "england"], ["1.lig", "1. lig", "league one"]),
-        ("🏴 İngiltere • 2. Lig", ["ingiltere", "england"], ["2.lig", "2. lig", "league two"]),
-        ("🇪🇸 İspanya • LaLiga", ["ispanya", "spain"], ["laliga", "la liga"]),
-        ("🇫🇷 Fransa • Ligue 1", ["fransa", "france"], ["ligue 1"]),
-        ("🇮🇹 İtalya • Serie A", ["italya", "italy"], ["serie a"]),
-        ("🇵🇹 Portekiz • Premier Lig", ["portekiz", "portugal"], ["premier lig", "primeira liga", "liga portugal"]),
-        ("🇩🇰 Danimarka • Superliga", ["danimarka", "denmark"], ["superliga", "superligaen", "süper lig"]),
-        ("🇳🇴 Norveç • Eliteserien", ["norveç", "norvec", "norway"], ["eliteserien"]),
-        ("🇸🇪 İsveç • Allsvenskan", ["isveç", "isvec", "sweden"], ["allsvenskan"]),
-        ("🇨🇭 İsviçre • Süper Lig", ["isviçre", "isvicre", "switzerland", "swiss"], ["süper lig", "super lig", "super league"]),
-    ]
-    for label, countries, comps in country_rules:
-        if any(clean_text(c) in n for c in countries) and any(clean_text(c) in n for c in comps):
-            return label
+    # Türkiye
+    if ("turkiye" in n or n == "super lig") and ("super lig" in n):
+        return "🇹🇷 Türkiye • Süper Lig"
 
-    # Fallback for payloads that return only competition name.
-    for label, needles in LEAGUE_GROUPS:
-        for needle in needles:
-            q = clean_text(needle)
-            if q == n:
-                return label
-    return None
+    # İngiltere
+    if "ingiltere" in n or "england" in n:
+        if "premier" in n:
+            return "🏴 İngiltere • Premier Lig"
+        if "championship" in n:
+            return "🏴 İngiltere • Championship"
+        if "league one" in n or "1 lig" in n:
+            return "🏴 İngiltere • 1. Lig"
+        if "league two" in n or "2 lig" in n:
+            return "🏴 İngiltere • 2. Lig"
+
+    # İspanya
+    if ("ispanya" in n or "spain" in n) and ("laliga" in n or "la liga" in n or "primera" in n):
+        return "🇪🇸 İspanya • LaLiga"
+
+    # Fransa
+    if ("fransa" in n or "france" in n) and "ligue 1" in n:
+        return "🇫🇷 Fransa • Ligue 1"
+
+    # İtalya
+    if ("italya" in n or "italy" in n) and "serie a" in n:
+        return "🇮🇹 İtalya • Serie A"
+
+    # Portekiz
+    if ("portekiz" in n or "portugal" in n) and ("primeira" in n or "premier" in n or "liga portugal" in n):
+        return "🇵🇹 Portekiz • Premier Lig"
+
+    # Danimarka
+    if ("danimarka" in n or "denmark" in n) and ("superliga" in n or "super lig" in n):
+        return "🇩🇰 Danimarka • Superliga"
+
+    # Norveç
+    if ("norvec" in n or "norway" in n) and "eliteserien" in n:
+        return "🇳🇴 Norveç • Eliteserien"
+
+    # İsveç
+    if ("isvec" in n or "sweden" in n) and "allsvenskan" in n:
+        return "🇸🇪 İsveç • Allsvenskan"
+
+    # İsviçre
+    if ("isvicre" in n or "switzerland" in n or "swiss" in n) and ("super league" in n or "super lig" in n):
+        return "🇨🇭 İsviçre • Süper Lig"
+
+    # Maçkolik bazen ülke adını lig alanına koymadan yalnızca lig adını döndürebilir.
+    exact_fallback = {
+        "super lig": "🇹🇷 Türkiye • Süper Lig",
+        "premier league": "🏴 İngiltere • Premier Lig",
+        "premier lig": "🏴 İngiltere • Premier Lig",
+        "championship": "🏴 İngiltere • Championship",
+        "league one": "🏴 İngiltere • 1. Lig",
+        "league two": "🏴 İngiltere • 2. Lig",
+        "laliga": "🇪🇸 İspanya • LaLiga",
+        "la liga": "🇪🇸 İspanya • LaLiga",
+        "ligue 1": "🇫🇷 Fransa • Ligue 1",
+        "serie a": "🇮🇹 İtalya • Serie A",
+        "primeira liga": "🇵🇹 Portekiz • Premier Lig",
+        "eliteserien": "🇳🇴 Norveç • Eliteserien",
+        "allsvenskan": "🇸🇪 İsveç • Allsvenskan",
+    }
+    return exact_fallback.get(n)
 
 # Matchleri yalnızca whitelist liglerde tut.
+raw_selected = list(selected)
 filtered_selected = []
-for m in selected:
+for m in raw_selected:
     group = wanted_league_group(m.get("league") or "")
     if group:
         m = dict(m)
@@ -558,6 +610,8 @@ st.markdown(
     f'<div class="subtitle">{len(daily_rows)} seçili lig maçı • {len(leagues)} lig • tahminler otomatik hesaplandı</div>',
     unsafe_allow_html=True
 )
+
+st.caption(f"Maçkolik ham futbol maçı: {len(raw_selected)} • Seçili liglere uyan: {len(daily_rows)}")
 
 if history_errors:
     st.caption(f"Not: Geçmiş veride {len(history_errors)} gün alınamadı; mevcut verilerle tahmin üretildi.")
@@ -640,8 +694,9 @@ st.markdown("""
 
 if not visible_rows:
     st.info("Bu tarihte seçili liglerde eşleşen maç bulunamadı.")
-    raw_leagues = sorted({m.get("league") for m in load_day(selected_date.isoformat()) if m.get("league")})
-    with st.expander("Maçkolikten gelen lig adlarını kontrol et"):
+    raw_leagues = sorted({m.get("league") for m in raw_selected if m.get("league")})
+    with st.expander("Maçkolikten gelen gerçek lig adlarını göster"):
+        st.write(f"Toplam ham futbol maçı: {len(raw_selected)}")
         for rl in raw_leagues:
             st.write("•", rl)
 else:

@@ -113,6 +113,13 @@ div[data-testid="stMetric"]{
 """, unsafe_allow_html=True)
 
 
+st.image(
+    "onur_by_tahmin_banner.png",
+    use_container_width=True
+)
+
+
+
 def crest_html(url, alt):
     if url:
         return f'<img class="crest" src="{escape(url, quote=True)}" alt="{escape(alt)}">'

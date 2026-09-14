@@ -61,7 +61,7 @@ st.markdown("""
 .stat{background:#fafafa;padding:9px 8px;text-align:center}
 .sk{font-size:.65rem;color:#6b7280}.sv{font-weight:900;color:#1f2937;margin-top:2px}
 div[data-testid="stMetric"]{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fff;box-shadow:none}
-.stButton button{border-radius:10px!important;font-weight:850!important}
+.stButton button{border-radius:10px!important;font-weight:850!important;white-space:nowrap!important}
 .stButton button[kind="primary"]{background:var(--red)!important;border-color:var(--red)!important}
 
 .header-meta{display:flex;align-items:center;gap:10px}
@@ -374,7 +374,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Date navigation — like a daily fixtures site.
-c1,c2,c3,c4 = st.columns([.85,.85,1.5,3.8])
+c1,c2,c3,c4 = st.columns([1.25,.85,1.45,3.6])
 with c1:
     prev_click = st.button("← Önceki Gün", use_container_width=True)
 with c2:
@@ -410,56 +410,67 @@ except Exception as exc:
 EXCLUDE_WORDS = [
     "kadın", "kadin", "women", "woman", "femin", "female",
     "u21", "u-21", "u19", "u-19", "u23", "u-23", "u18", "u-18",
-    "youth", "genç", "genc", "reserve", "rezerv", "academy", "akademi"
+    "u17", "u-17", "u16", "u-16", "youth", "genç", "genc",
+    "reserve", "rezerv", "academy", "akademi",
+    "kupa", "cup", "trophy", "play off", "play-off"
 ]
 
 LEAGUE_GROUPS = [
     ("🇹🇷 Türkiye • Süper Lig", [
-        "türkiye - süper lig", "türkiye süper lig", "turkiye - super lig",
-        "turkiye super lig", "süper lig", "super lig"
+        "türkiye süper lig", "türkiye - süper lig", "turkiye super lig",
+        "süper lig", "super lig"
     ]),
-    ("🏴 İngiltere • Premier League", [
-        "england - premier league", "ingiltere - premier lig",
-        "premier league"
+    ("🏴 İngiltere • Premier Lig", [
+        "ingiltere premier lig", "ingiltere - premier lig",
+        "ingiltere premier league", "england premier league"
     ]),
     ("🏴 İngiltere • Championship", [
-        "england - championship", "championship"
+        "ingiltere championship", "ingiltere - championship",
+        "england championship"
     ]),
-    ("🏴 İngiltere • League One", [
-        "england - league one", "league one"
+    ("🏴 İngiltere • 1. Lig", [
+        "ingiltere 1.lig", "ingiltere 1. lig", "ingiltere - 1.lig",
+        "ingiltere - 1. lig", "england league one", "league one"
     ]),
-    ("🏴 İngiltere • League Two", [
-        "england - league two", "league two"
+    ("🏴 İngiltere • 2. Lig", [
+        "ingiltere 2.lig", "ingiltere 2. lig", "ingiltere - 2.lig",
+        "ingiltere - 2. lig", "england league two", "league two"
     ]),
-    ("🇪🇸 İspanya • La Liga", [
-        "spain - laliga", "spain - la liga", "ispanya - laliga",
-        "ispanya - la liga", "la liga", "laliga", "primera division"
+    ("🇪🇸 İspanya • LaLiga", [
+        "ispanya laliga", "ispanya - laliga", "spain laliga",
+        "spain - laliga", "la liga", "laliga"
     ]),
     ("🇫🇷 Fransa • Ligue 1", [
-        "france - ligue 1", "fransa - ligue 1", "ligue 1"
+        "fransa ligue 1", "fransa - ligue 1", "france ligue 1",
+        "france - ligue 1", "ligue 1"
     ]),
     ("🇮🇹 İtalya • Serie A", [
-        "italy - serie a", "italya - serie a", "serie a"
+        "italya serie a", "italya - serie a", "italy serie a",
+        "italy - serie a", "serie a"
     ]),
-    ("🇵🇹 Portekiz • Primeira Liga", [
-        "portugal - primeira liga", "portekiz - primeira liga",
+    ("🇵🇹 Portekiz • Premier Lig", [
+        "portekiz premier lig", "portekiz - premier lig",
+        "portekiz primeira liga", "portekiz - primeira liga",
+        "portugal premier lig", "portugal primeira liga",
         "primeira liga", "liga portugal"
     ]),
     ("🇩🇰 Danimarka • Superliga", [
-        "denmark - superliga", "danimarka - superliga",
-        "superligaen", "superliga"
+        "danimarka superliga", "danimarka - superliga",
+        "danimarka süper lig", "danimarka - süper lig",
+        "denmark superliga", "superligaen"
     ]),
     ("🇳🇴 Norveç • Eliteserien", [
-        "norway - eliteserien", "norveç - eliteserien",
-        "norvec - eliteserien", "eliteserien"
+        "norveç eliteserien", "norveç - eliteserien",
+        "norvec eliteserien", "norway eliteserien", "eliteserien"
     ]),
     ("🇸🇪 İsveç • Allsvenskan", [
-        "sweden - allsvenskan", "isveç - allsvenskan",
-        "isvec - allsvenskan", "allsvenskan"
+        "isveç allsvenskan", "isveç - allsvenskan",
+        "isvec allsvenskan", "sweden allsvenskan", "allsvenskan"
     ]),
-    ("🇨🇭 İsviçre • Super League", [
-        "switzerland - super league", "isviçre - super league",
-        "isvicre - super league", "swiss super league"
+    ("🇨🇭 İsviçre • Süper Lig", [
+        "isviçre süper lig", "isviçre - süper lig",
+        "isvicre super lig", "switzerland super league",
+        "swiss super league"
     ]),
 ]
 
@@ -468,13 +479,34 @@ def clean_text(text):
 
 def wanted_league_group(league_name):
     n = clean_text(league_name)
-    if any(x in n for x in EXCLUDE_WORDS):
+    if any(clean_text(x) in n for x in EXCLUDE_WORDS):
         return None
+
+    # First try Mackolik's actual country + competition naming.
+    country_rules = [
+        ("🇹🇷 Türkiye • Süper Lig", ["türkiye", "turkiye"], ["süper lig", "super lig"]),
+        ("🏴 İngiltere • Premier Lig", ["ingiltere", "england"], ["premier lig", "premier league"]),
+        ("🏴 İngiltere • Championship", ["ingiltere", "england"], ["championship"]),
+        ("🏴 İngiltere • 1. Lig", ["ingiltere", "england"], ["1.lig", "1. lig", "league one"]),
+        ("🏴 İngiltere • 2. Lig", ["ingiltere", "england"], ["2.lig", "2. lig", "league two"]),
+        ("🇪🇸 İspanya • LaLiga", ["ispanya", "spain"], ["laliga", "la liga"]),
+        ("🇫🇷 Fransa • Ligue 1", ["fransa", "france"], ["ligue 1"]),
+        ("🇮🇹 İtalya • Serie A", ["italya", "italy"], ["serie a"]),
+        ("🇵🇹 Portekiz • Premier Lig", ["portekiz", "portugal"], ["premier lig", "primeira liga", "liga portugal"]),
+        ("🇩🇰 Danimarka • Superliga", ["danimarka", "denmark"], ["superliga", "superligaen", "süper lig"]),
+        ("🇳🇴 Norveç • Eliteserien", ["norveç", "norvec", "norway"], ["eliteserien"]),
+        ("🇸🇪 İsveç • Allsvenskan", ["isveç", "isvec", "sweden"], ["allsvenskan"]),
+        ("🇨🇭 İsviçre • Süper Lig", ["isviçre", "isvicre", "switzerland", "swiss"], ["süper lig", "super lig", "super league"]),
+    ]
+    for label, countries, comps in country_rules:
+        if any(clean_text(c) in n for c in countries) and any(clean_text(c) in n for c in comps):
+            return label
+
+    # Fallback for payloads that return only competition name.
     for label, needles in LEAGUE_GROUPS:
         for needle in needles:
             q = clean_text(needle)
-            if q in n:
-                # Avoid England youth/premier reserve style competitions.
+            if q == n:
                 return label
     return None
 
@@ -607,7 +639,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if not visible_rows:
-    st.info("Bu tarihte seçtiğin üst liglerde maç bulunamadı.")
+    st.info("Bu tarihte seçili liglerde eşleşen maç bulunamadı.")
+    raw_leagues = sorted({m.get("league") for m in load_day(selected_date.isoformat()) if m.get("league")})
+    with st.expander("Maçkolikten gelen lig adlarını kontrol et"):
+        for rl in raw_leagues:
+            st.write("•", rl)
 else:
     # Group matches by league, exactly like a fixture/results page.
     grouped = {}

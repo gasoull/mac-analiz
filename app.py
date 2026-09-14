@@ -12,14 +12,14 @@ import streamlit as st
 # AYARLAR
 # =========================
 st.set_page_config(
-    page_title="ONUR By Tahmin | İddaa Analiz Programı",
+    page_title="ONUR | Günlük Futbol Tahminleri",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 BASE_URL = "https://vd.mackolik.com/livedata"
-MARKETS = ["1.5 Üst", "2.5 Üst", "3.5 Alt", "KG Var", "KG Yok"]
+MARKETS = ["1.5 Üst", "2.5 Üst", "3.5 Üst", "3.5 Alt", "KG Var", "KG Yok"]
 
 # =========================
 # TASARIM
@@ -69,10 +69,10 @@ div[data-testid="stMetric"]{border:1px solid var(--line);border-radius:12px;padd
 
 
 .daily-wrap{margin-top:12px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;background:#fff}
-.daily-head{display:grid;grid-template-columns:72px 1.65fr repeat(5,.72fr);gap:0;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:.68rem;font-weight:900;color:#596273}
+.daily-head{display:grid;grid-template-columns:72px 1.65fr repeat(6,.72fr);gap:0;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:.68rem;font-weight:900;color:#596273}
 .daily-head div,.daily-row>div{padding:9px 8px;border-right:1px solid #eceff3}
 .daily-head div:last-child,.daily-row>div:last-child{border-right:none}
-.daily-row{display:grid;grid-template-columns:72px 1.65fr repeat(5,.72fr);gap:0;border-bottom:1px solid #edf0f3;align-items:center;font-size:.76rem}
+.daily-row{display:grid;grid-template-columns:72px 1.65fr repeat(6,.72fr);gap:0;border-bottom:1px solid #edf0f3;align-items:center;font-size:.76rem}
 .daily-row:last-child{border-bottom:none}
 .daily-row:hover{background:#fafafa}
 .dtime{font-weight:900;color:#4b5563}
@@ -83,7 +83,7 @@ div[data-testid="stMetric"]{border:1px solid var(--line);border-radius:12px;padd
 .mid{color:#9a6b00;background:#fff9e8}
 .low{color:#7b8491;background:#f8f9fa}
 @media(max-width:900px){
- .daily-head,.daily-row{grid-template-columns:58px 1.4fr repeat(5,.72fr)}
+ .daily-head,.daily-row{grid-template-columns:58px 1.4fr repeat(6,.72fr)}
  .daily-head div,.daily-row>div{padding:7px 5px;font-size:.65rem}
 }
 </style>
@@ -253,6 +253,7 @@ def _hit(r, market):
     return {
         "1.5 Üst": total>=2,
         "2.5 Üst": total>=3,
+        "3.5 Üst": total>=4,
         "3.5 Alt": total<=3,
         "KG Var": btts,
         "KG Yok": not btts,
@@ -346,8 +347,8 @@ def initials(name):
 today = datetime.now(ZoneInfo("Europe/Istanbul")).date()
 
 with st.sidebar:
-    st.markdown("## ONUR By Tahmin")
-    st.caption("İddaa Analiz Programı")
+    st.markdown("## ONUR")
+    st.caption("Günlük Futbol Tahminleri")
     st.divider()
     st.markdown('<span class="live-pill">● MAÇKOLİK VERİ MODU</span>', unsafe_allow_html=True)
     st.caption("Tek dosya sürümü")
@@ -359,10 +360,10 @@ with st.sidebar:
 st.markdown("""
 <div class="topbar">
   <div class="brand-wrap">
-    <div class="brand-mark">ON</div>
+    <div class="brand-mark">⚽</div>
     <div>
-      <div class="brand-title">ONUR By Tahmin</div>
-      <div class="brand-sub">Futbol maç ve gol marketi analiz ekranı</div>
+      <div class="brand-title">GÜNLÜK TAHMİN LİSTESİ</div>
+      <div class="brand-sub">Bugünün maçları • gol marketleri • istatistiksel yüzde</div>
     </div>
   </div>
   <div class="header-meta">
@@ -372,7 +373,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="title">Maç Tarayıcı</div>', unsafe_allow_html=True)
+st.markdown('<div class="title">Bugünün Tahminlerini Hazırla</div>', unsafe_allow_html=True)
 
 a,b,c,d=st.columns([1.35,1.35,.9,1.1])
 with a:
@@ -382,7 +383,7 @@ with b:
 with c:
     top_n=st.selectbox("Göster",[5,10,15],index=1)
 with d:
-    min_prob=st.slider("Min. olasılık",50,90,60)
+    min_prob=st.slider("Min. olasılık",50,90,55)
 
 if date_mode=="Bugün":
     start=end=today
@@ -469,7 +470,7 @@ else:
 
 fixtures=[m for m in filtered if m["status"]!="FINISHED"]
 
-run=st.button("⚡ Maçları Analiz Et",type="primary")
+run=st.button("⚡ Günlük Listeyi Oluştur",type="primary")
 
 m1,m2,m3,m4=st.columns(4)
 m1.metric("Maçkolik maçları",len(selected))
@@ -507,7 +508,7 @@ if run:
 
 data=st.session_state.get("v52")
 if data:
-    st.markdown('<div class="title">⚽ Günün Maçları ve Gol Tahminleri</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title">⚽ GÜNLÜK TAHMİN LİSTESİ</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Her maç için model yüzdeleri • yeşil ≥ %70 • sarı ≥ %60</div>', unsafe_allow_html=True)
 
     daily_rows=data.get("daily_rows",[])
@@ -515,7 +516,7 @@ if data:
         table_html = """
         <div class="daily-wrap">
           <div class="daily-head">
-            <div>Saat</div><div>Maç</div><div>1.5 Üst</div><div>2.5 Üst</div><div>3.5 Alt</div><div>KG Var</div><div>KG Yok</div>
+            <div>Saat</div><div>Maç</div><div>1.5 Üst</div><div>2.5 Üst</div><div>3.5 Üst</div><div>3.5 Alt</div><div>KG Var</div><div>KG Yok</div>
           </div>
         """
         for m in daily_rows:
@@ -526,6 +527,7 @@ if data:
               <div class="dmatch">{escape(m["home"])} - {escape(m["away"])}<span class="dleague">{escape(m["league"])}</span></div>
               {score_cell(s.get("1.5 Üst"))}
               {score_cell(s.get("2.5 Üst"))}
+              {score_cell(s.get("3.5 Üst"))}
               {score_cell(s.get("3.5 Alt"))}
               {score_cell(s.get("KG Var"))}
               {score_cell(s.get("KG Yok"))}
@@ -536,40 +538,10 @@ if data:
     else:
         st.info("Bu filtrede gösterilecek maç bulunamadı.")
 
-    st.markdown('<div class="title">⭐ En Güçlü Marketler</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title">📌 Günlük Liste Özeti</div>', unsafe_allow_html=True)
     if data["h_errors"]:
         st.warning(f"Geçmiş taramasında {len(data['h_errors'])} gün alınamadı.")
-    if not data["rows"]:
-        st.warning("Maçlar geldi fakat filtreyi geçen tahmin yok. Minimum olasılığı 55 yapıp tekrar dene.")
-    for i,r in enumerate(data["rows"],1):
-        pct=max(0,min(100,r["probability"]))
-        status="CANLI" if r["status"]=="LIVE" else r["time"]
-        st.markdown(f"""
-        <div class="match-card">
-          <div class="mc-head"><div>#{i} • <b>{escape(r["league"])}</b> • {escape(r["date"])} • {escape(str(status))}</div><div class="rank">#{i}</div></div>
-          <div class="mc-body">
-            <div class="teams">
-              <div class="team"><div class="badge">{escape(initials(r["home"]))}</div><div class="tn">{escape(r["home"])}</div></div>
-              <div class="vs">VS</div>
-              <div class="team r"><div class="tn">{escape(r["away"])}</div><div class="badge">{escape(initials(r["away"]))}</div></div>
-            </div>
-            <div class="pick">
-              <div><div style="font-size:.68rem;color:#738092;font-weight:850">TAHMİN</div><div class="prob">%{r["probability"]:.0f}</div><div class="market">{escape(r["market"])}</div></div>
-              <div class="conf">{escape(r["confidence"])}</div>
-              <div class="bar"><span style="width:{pct:.0f}%"></span></div>
-            </div>
-          </div>
-          <div class="stats">
-            <div class="stat"><div class="sk">Takım-maç örneği</div><div class="sv">{r["sample_count"]}</div></div>
-            <div class="stat"><div class="sk">Ort. toplam gol</div><div class="sv">{r["avg_goals"]:.2f}</div></div>
-            <div class="stat"><div class="sk">KG oranı</div><div class="sv">%{r["btts_rate"]:.0f}</div></div>
-            <div class="stat"><div class="sk">2.5 Üst oranı</div><div class="sv">%{r["over25_rate"]:.0f}</div></div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        with st.expander(f"Analiz detayı • {r['home']} - {r['away']}"):
-            st.json(r["details"])
+    st.caption("Yüzdeler geçmiş maç performansından üretilen model skorlarıdır; kesin sonuç veya bahis garantisi değildir.")
 
 with st.expander(f"🌍 Maçkolikten gelen tüm ligleri göster ({len(leagues)})"):
     cols=st.columns(3)

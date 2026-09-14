@@ -362,8 +362,8 @@ st.markdown("""
   <div class="brand-wrap">
     <div class="brand-mark">⚽</div>
     <div>
-      <div class="brand-title">GÜNLÜK MAÇ & TAHMİN LİSTESİ</div>
-      <div class="brand-sub">Seçilen tarihteki tüm futbol maçları • Maçkolik verisi</div>
+      <div class="brand-title">GÜNLÜK FUTBOL TAHMİNLERİ</div>
+      <div class="brand-sub">Seçili üst ligler • günlük maç listesi • gol market tahminleri</div>
     </div>
   </div>
   <div class="header-meta">
@@ -405,11 +405,95 @@ except Exception as exc:
     selected = []
     st.error(f"Maçkolik verisi alınamadı: {exc}")
 
+# Sadece kullanıcının istediği erkek A takım ligleri.
+# Kadın, U21/U19/U23, rezerv, gençlik ve diğer ligler filtrelenir.
+EXCLUDE_WORDS = [
+    "kadın", "kadin", "women", "woman", "femin", "female",
+    "u21", "u-21", "u19", "u-19", "u23", "u-23", "u18", "u-18",
+    "youth", "genç", "genc", "reserve", "rezerv", "academy", "akademi"
+]
+
+LEAGUE_GROUPS = [
+    ("🇹🇷 Türkiye • Süper Lig", [
+        "türkiye - süper lig", "türkiye süper lig", "turkiye - super lig",
+        "turkiye super lig", "süper lig", "super lig"
+    ]),
+    ("🏴 İngiltere • Premier League", [
+        "england - premier league", "ingiltere - premier lig",
+        "premier league"
+    ]),
+    ("🏴 İngiltere • Championship", [
+        "england - championship", "championship"
+    ]),
+    ("🏴 İngiltere • League One", [
+        "england - league one", "league one"
+    ]),
+    ("🏴 İngiltere • League Two", [
+        "england - league two", "league two"
+    ]),
+    ("🇪🇸 İspanya • La Liga", [
+        "spain - laliga", "spain - la liga", "ispanya - laliga",
+        "ispanya - la liga", "la liga", "laliga", "primera division"
+    ]),
+    ("🇫🇷 Fransa • Ligue 1", [
+        "france - ligue 1", "fransa - ligue 1", "ligue 1"
+    ]),
+    ("🇮🇹 İtalya • Serie A", [
+        "italy - serie a", "italya - serie a", "serie a"
+    ]),
+    ("🇵🇹 Portekiz • Primeira Liga", [
+        "portugal - primeira liga", "portekiz - primeira liga",
+        "primeira liga", "liga portugal"
+    ]),
+    ("🇩🇰 Danimarka • Superliga", [
+        "denmark - superliga", "danimarka - superliga",
+        "superligaen", "superliga"
+    ]),
+    ("🇳🇴 Norveç • Eliteserien", [
+        "norway - eliteserien", "norveç - eliteserien",
+        "norvec - eliteserien", "eliteserien"
+    ]),
+    ("🇸🇪 İsveç • Allsvenskan", [
+        "sweden - allsvenskan", "isveç - allsvenskan",
+        "isvec - allsvenskan", "allsvenskan"
+    ]),
+    ("🇨🇭 İsviçre • Super League", [
+        "switzerland - super league", "isviçre - super league",
+        "isvicre - super league", "swiss super league"
+    ]),
+]
+
+def clean_text(text):
+    return " ".join((text or "").casefold().replace("–","-").replace("—","-").split())
+
+def wanted_league_group(league_name):
+    n = clean_text(league_name)
+    if any(x in n for x in EXCLUDE_WORDS):
+        return None
+    for label, needles in LEAGUE_GROUPS:
+        for needle in needles:
+            q = clean_text(needle)
+            if q in n:
+                # Avoid England youth/premier reserve style competitions.
+                return label
+    return None
+
+# Matchleri yalnızca whitelist liglerde tut.
+filtered_selected = []
+for m in selected:
+    group = wanted_league_group(m.get("league") or "")
+    if group:
+        m = dict(m)
+        m["display_league"] = group
+        filtered_selected.append(m)
+selected = filtered_selected
+
 # Always show every football match for the selected date.
+league_order = {label:i for i,(label,_) in enumerate(LEAGUE_GROUPS)}
 selected = sorted(
     selected,
     key=lambda m: (
-        (m.get("league") or "").casefold(),
+        league_order.get(m.get("display_league"), 999),
         m.get("time") or "99:99",
         (m.get("home") or "").casefold()
     )
@@ -430,16 +514,16 @@ for fixture in selected:
     daily_rows.append({**fixture, "scores": scores})
 
 leagues = []
-for m in daily_rows:
-    if m.get("league") not in leagues:
-        leagues.append(m.get("league"))
+for label, _ in LEAGUE_GROUPS:
+    if any(m.get("display_league") == label for m in daily_rows):
+        leagues.append(label)
 
 st.markdown(
     f'<div class="title">⚽ {selected_date.strftime("%d.%m.%Y")} MAÇLARI</div>',
     unsafe_allow_html=True
 )
 st.markdown(
-    f'<div class="subtitle">{len(daily_rows)} futbol maçı • {len(leagues)} lig • tahminler otomatik hesaplandı</div>',
+    f'<div class="subtitle">{len(daily_rows)} seçili lig maçı • {len(leagues)} lig • tahminler otomatik hesaplandı</div>',
     unsafe_allow_html=True
 )
 
@@ -453,7 +537,7 @@ league_choice = st.selectbox("Lig filtresi", filter_options)
 if league_choice == "🌍 Tüm Maçlar":
     visible_rows = daily_rows
 else:
-    visible_rows = [m for m in daily_rows if m.get("league") == league_choice]
+    visible_rows = [m for m in daily_rows if m.get("display_league") == league_choice]
 
 def pct_html(v):
     if v is None:
@@ -465,15 +549,18 @@ def pct_html(v):
 st.markdown("""
 <style>
 .fixture-league{
-  margin-top:14px;
-  padding:8px 11px;
-  background:#eef1f5;
-  border:1px solid #dfe3e8;
+  margin-top:22px;
+  padding:13px 15px;
+  background:linear-gradient(180deg,#ffffff 0%,#f6f7f9 100%);
+  border:1px solid #dde2e8;
+  border-left:5px solid #e31d2b;
   border-bottom:none;
-  border-radius:10px 10px 0 0;
-  font-size:.76rem;
-  font-weight:900;
-  color:#374151;
+  border-radius:14px 14px 0 0;
+  font-size:1.02rem;
+  font-weight:950;
+  letter-spacing:-.015em;
+  color:#171a21;
+  box-shadow:0 6px 18px rgba(17,24,39,.04);
 }
 .fixture-head,.fixture-row{
   display:grid;
@@ -481,11 +568,13 @@ st.markdown("""
   align-items:stretch;
 }
 .fixture-head{
-  background:#f8f9fb;
-  border:1px solid #e1e5ea;
-  font-size:.62rem;
-  font-weight:900;
-  color:#687386;
+  background:#f2f4f7;
+  border:1px solid #dde2e8;
+  font-size:.67rem;
+  font-weight:950;
+  color:#596273;
+  text-transform:uppercase;
+  letter-spacing:.02em;
 }
 .fixture-head>div,.fixture-row>div{
   padding:8px 7px;
@@ -497,7 +586,8 @@ st.markdown("""
   border-right:1px solid #e1e5ea;
   border-bottom:1px solid #e8ebef;
   background:#fff;
-  font-size:.73rem;
+  font-size:.78rem;
+  min-height:44px;
 }
 .fixture-row:last-child{border-radius:0 0 10px 10px}
 .fixture-row:hover{background:#fbfbfc}
@@ -517,12 +607,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if not visible_rows:
-    st.info("Bu tarihte futbol maçı bulunamadı.")
+    st.info("Bu tarihte seçtiğin üst liglerde maç bulunamadı.")
 else:
     # Group matches by league, exactly like a fixture/results page.
     grouped = {}
     for m in visible_rows:
-        grouped.setdefault(m.get("league") or "Diğer", []).append(m)
+        grouped.setdefault(m.get("display_league") or "Diğer", []).append(m)
 
     for league_name, matches in grouped.items():
         st.markdown(f'<div class="fixture-league">🌐 {escape(league_name)}</div>', unsafe_allow_html=True)

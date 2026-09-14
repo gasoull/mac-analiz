@@ -342,7 +342,7 @@ def initials(name):
     return "".join(x[0] for x in parts[:2]).upper() or "FC"
 
 # =========================
-# UI
+# UI — MAÇKOLİK TARZI GÜNLÜK LİSTE
 # =========================
 today = datetime.now(ZoneInfo("Europe/Istanbul")).date()
 
@@ -351,19 +351,19 @@ with st.sidebar:
     st.caption("Günlük Futbol Tahminleri")
     st.divider()
     st.markdown('<span class="live-pill">● MAÇKOLİK VERİ MODU</span>', unsafe_allow_html=True)
-    st.caption("Tek dosya sürümü")
-    st.markdown("### Analiz Ayarları")
+    st.markdown("### Tahmin Ayarları")
     history_days=st.select_slider("Geçmiş taraması",[14,21,30],value=21,format_func=lambda x:f"{x} gün")
     sample_size=st.select_slider("Takım başına son maç",[5,6,8,10],value=8)
-    min_sample=st.select_slider("Minimum takım örneği",[3,4,5],value=3)
+    st.divider()
+    st.caption("Maçlar seçilen tarihte otomatik listelenir.")
 
 st.markdown("""
 <div class="topbar">
   <div class="brand-wrap">
     <div class="brand-mark">⚽</div>
     <div>
-      <div class="brand-title">GÜNLÜK TAHMİN LİSTESİ</div>
-      <div class="brand-sub">Bugünün maçları • gol marketleri • istatistiksel yüzde</div>
+      <div class="brand-title">GÜNLÜK MAÇ & TAHMİN LİSTESİ</div>
+      <div class="brand-sub">Seçilen tarihteki tüm futbol maçları • Maçkolik verisi</div>
     </div>
   </div>
   <div class="header-meta">
@@ -373,177 +373,195 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="title">Bugünün Tahminlerini Hazırla</div>', unsafe_allow_html=True)
+# Date navigation — like a daily fixtures site.
+c1,c2,c3,c4 = st.columns([.85,.85,1.5,3.8])
+with c1:
+    prev_click = st.button("← Önceki Gün", use_container_width=True)
+with c2:
+    today_click = st.button("Bugün", use_container_width=True)
+with c3:
+    chosen = st.date_input("Tarih", value=st.session_state.get("daily_date", today), label_visibility="collapsed")
+with c4:
+    pass
 
-a,b,c,d=st.columns([1.35,1.35,.9,1.1])
-with a:
-    date_mode=st.selectbox("Tarih",["Bugün","Yarın","Önümüzdeki 3 Gün","Önümüzdeki 7 Gün","Özel Tarih"])
-with b:
-    analysis_mode=st.selectbox("Analiz",["En Güçlü Market"]+MARKETS)
-with c:
-    top_n=st.selectbox("Göster",[5,10,15],index=1)
-with d:
-    min_prob=st.slider("Min. olasılık",50,90,55)
+if "daily_date" not in st.session_state:
+    st.session_state.daily_date = today
+if prev_click:
+    st.session_state.daily_date = st.session_state.daily_date - timedelta(days=1)
+    st.rerun()
+if today_click:
+    st.session_state.daily_date = today
+    st.rerun()
+if chosen != st.session_state.daily_date:
+    st.session_state.daily_date = chosen
+    st.rerun()
 
-if date_mode=="Bugün":
-    start=end=today
-elif date_mode=="Yarın":
-    start=end=today+timedelta(days=1)
-elif date_mode=="Önümüzdeki 3 Gün":
-    start,end=today,today+timedelta(days=2)
-elif date_mode=="Önümüzdeki 7 Gün":
-    start,end=today,today+timedelta(days=6)
+selected_date = st.session_state.daily_date
+
+# Load selected day's matches.
+try:
+    selected = load_day(selected_date.isoformat())
+except Exception as exc:
+    selected = []
+    st.error(f"Maçkolik verisi alınamadı: {exc}")
+
+# Always show every football match for the selected date.
+selected = sorted(
+    selected,
+    key=lambda m: (
+        (m.get("league") or "").casefold(),
+        m.get("time") or "99:99",
+        (m.get("home") or "").casefold()
+    )
+)
+
+# History is loaded automatically, so the user does not have to press an Analyse button.
+hist_end = selected_date - timedelta(days=1)
+hist_start = hist_end - timedelta(days=history_days-1)
+
+with st.spinner("Günün maçları ve tahmin yüzdeleri hazırlanıyor..."):
+    history, history_errors = load_history(hist_start.isoformat(), hist_end.isoformat())
+    history_idx = build_team_history(history)
+
+# Compute predictions for every scheduled/live fixture. Completed games stay visible with result.
+daily_rows = []
+for fixture in selected:
+    scores = all_market_scores(fixture, history_idx, sample_size)
+    daily_rows.append({**fixture, "scores": scores})
+
+leagues = []
+for m in daily_rows:
+    if m.get("league") not in leagues:
+        leagues.append(m.get("league"))
+
+st.markdown(
+    f'<div class="title">⚽ {selected_date.strftime("%d.%m.%Y")} MAÇLARI</div>',
+    unsafe_allow_html=True
+)
+st.markdown(
+    f'<div class="subtitle">{len(daily_rows)} futbol maçı • {len(leagues)} lig • tahminler otomatik hesaplandı</div>',
+    unsafe_allow_html=True
+)
+
+if history_errors:
+    st.caption(f"Not: Geçmiş veride {len(history_errors)} gün alınamadı; mevcut verilerle tahmin üretildi.")
+
+# Optional compact league filter, but default remains ALL matches.
+filter_options = ["🌍 Tüm Maçlar"] + leagues
+league_choice = st.selectbox("Lig filtresi", filter_options)
+
+if league_choice == "🌍 Tüm Maçlar":
+    visible_rows = daily_rows
 else:
-    x=st.date_input("Özel tarih",value=today)
-    start=end=x
+    visible_rows = [m for m in daily_rows if m.get("league") == league_choice]
 
-selected=[]
-errors=[]
-cur=start
-while cur<=end:
-    try:
-        selected.extend(load_day(cur.isoformat()))
-    except Exception as exc:
-        errors.append(str(exc))
-    cur += timedelta(days=1)
+def pct_html(v):
+    if v is None:
+        return '<span class="pred pred-none">—</span>'
+    cls = "pred-strong" if v >= 70 else ("pred-mid" if v >= 60 else "pred-low")
+    return f'<span class="pred {cls}">%{v:.0f}</span>'
 
-leagues=sorted({m["league"] for m in selected if m.get("league")},key=str.casefold)
-
-# Popüler lig menüsü: uzun 50+ lig listesini kullanıcıya göstermeyelim.
-POPULAR_RULES = {
-    "🇹🇷 Süper Lig": ["süper lig", "super lig"],
-    "🏴 Premier League": ["premier league"],
-    "🏴 Championship": ["championship"],
-    "🏴 League One": ["league one", "lig 1"],
-    "🏴 League Two": ["league two", "lig 2"],
-    "🇪🇸 La Liga": ["la liga", "laliga", "primera division"],
-    "🇮🇹 Serie A": ["serie a"],
-    "🇩🇪 Bundesliga": ["bundesliga"],
-    "🇫🇷 Ligue 1": ["ligue 1"],
-    "⭐ Şampiyonlar Ligi": ["champions league", "şampiyonlar ligi"],
-    "🟠 Avrupa Ligi": ["europa league", "avrupa ligi"],
-    "🟢 Konferans Ligi": ["conference league", "konferans ligi"],
+# Extra CSS for Mackolik-like grouped fixture list.
+st.markdown("""
+<style>
+.fixture-league{
+  margin-top:14px;
+  padding:8px 11px;
+  background:#eef1f5;
+  border:1px solid #dfe3e8;
+  border-bottom:none;
+  border-radius:10px 10px 0 0;
+  font-size:.76rem;
+  font-weight:900;
+  color:#374151;
 }
+.fixture-head,.fixture-row{
+  display:grid;
+  grid-template-columns:64px minmax(260px,1.8fr) repeat(6,minmax(70px,.62fr));
+  align-items:stretch;
+}
+.fixture-head{
+  background:#f8f9fb;
+  border:1px solid #e1e5ea;
+  font-size:.62rem;
+  font-weight:900;
+  color:#687386;
+}
+.fixture-head>div,.fixture-row>div{
+  padding:8px 7px;
+  border-right:1px solid #edf0f3;
+}
+.fixture-head>div:last-child,.fixture-row>div:last-child{border-right:none}
+.fixture-row{
+  border-left:1px solid #e1e5ea;
+  border-right:1px solid #e1e5ea;
+  border-bottom:1px solid #e8ebef;
+  background:#fff;
+  font-size:.73rem;
+}
+.fixture-row:last-child{border-radius:0 0 10px 10px}
+.fixture-row:hover{background:#fbfbfc}
+.fx-time{font-weight:900;color:#5b6473;text-align:center}
+.fx-match{font-weight:850;color:#202733}
+.fx-score{font-weight:950;color:#111827;margin-left:7px}
+.fx-market{text-align:center}
+.pred{display:inline-block;min-width:44px;padding:3px 5px;border-radius:6px;font-weight:900;text-align:center}
+.pred-strong{background:#e9f9ef;color:#08783e}
+.pred-mid{background:#fff5d9;color:#9a6700}
+.pred-low{background:#f4f5f7;color:#707988}
+.pred-none{background:#f7f7f8;color:#a0a6af}
+@media(max-width:1000px){
+  .fixture-head,.fixture-row{grid-template-columns:55px minmax(190px,1.5fr) repeat(6,62px)}
+}
+</style>
+""", unsafe_allow_html=True)
 
-def league_matches_rule(league_name, needles):
-    n = (league_name or "").casefold()
-    return any(x.casefold() in n for x in needles)
-
-popular_real_leagues = set()
-for real_name in leagues:
-    for needles in POPULAR_RULES.values():
-        if league_matches_rule(real_name, needles):
-            popular_real_leagues.add(real_name)
-            break
-
-main_league_options = [
-    "🔥 Popüler Maçlar",
-    "🇹🇷 Süper Lig",
-    "🏴 Premier League",
-    "🏴 Championship",
-    "🏴 League One",
-    "🏴 League Two",
-    "🇪🇸 La Liga",
-    "🇮🇹 Serie A",
-    "🇩🇪 Bundesliga",
-    "🇫🇷 Ligue 1",
-    "⭐ Şampiyonlar Ligi",
-    "🟠 Avrupa Ligi",
-    "🟢 Konferans Ligi",
-    "🌍 Diğer Ligler",
-]
-
-league_filter=st.selectbox("Lig", main_league_options)
-
-if league_filter == "🔥 Popüler Maçlar":
-    filtered=[m for m in selected if m.get("league") in popular_real_leagues]
-elif league_filter == "🌍 Diğer Ligler":
-    other_leagues=[x for x in leagues if x not in popular_real_leagues]
-    if other_leagues:
-        other_choice=st.selectbox("Diğer lig seç", other_leagues)
-        filtered=[m for m in selected if m.get("league")==other_choice]
-    else:
-        filtered=[]
+if not visible_rows:
+    st.info("Bu tarihte futbol maçı bulunamadı.")
 else:
-    needles=POPULAR_RULES.get(league_filter, [])
-    filtered=[m for m in selected if league_matches_rule(m.get("league",""), needles)]
+    # Group matches by league, exactly like a fixture/results page.
+    grouped = {}
+    for m in visible_rows:
+        grouped.setdefault(m.get("league") or "Diğer", []).append(m)
 
-fixtures=[m for m in filtered if m["status"]!="FINISHED"]
+    for league_name, matches in grouped.items():
+        st.markdown(f'<div class="fixture-league">🌐 {escape(league_name)}</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="fixture-head">
+          <div>Saat</div>
+          <div>Maç</div>
+          <div>1.5 Üst</div>
+          <div>2.5 Üst</div>
+          <div>3.5 Üst</div>
+          <div>3.5 Alt</div>
+          <div>KG Var</div>
+          <div>KG Yok</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-run=st.button("⚡ Günlük Listeyi Oluştur",type="primary")
+        for m in matches:
+            s = m["scores"]
+            if m.get("status") == "FINISHED":
+                status_text = f'{m.get("home_score","")}-{m.get("away_score","")}'
+            elif m.get("status") == "LIVE":
+                status_text = f'{m.get("live_home_score","")}-{m.get("live_away_score","")}'
+            else:
+                status_text = ""
 
-m1,m2,m3,m4=st.columns(4)
-m1.metric("Maçkolik maçları",len(selected))
-m2.metric("Lig sayısı",len(leagues))
-m3.metric("Analiz adayı",len(fixtures))
-m4.metric("Türkiye saati",datetime.now(ZoneInfo("Europe/Istanbul")).strftime("%H:%M"))
-
-if errors and not selected:
-    st.error(errors[0])
-
-if run:
-    hist_end=start-timedelta(days=1)
-    hist_start=hist_end-timedelta(days=history_days-1)
-
-    with st.spinner(f"Geçmiş {history_days} gün taranıyor..."):
-        history,h_errors=load_history(hist_start.isoformat(),hist_end.isoformat())
-
-    idx=build_team_history(history)
-    finished_history = sum(1 for m in history if m.get("status") == "FINISHED")
-    st.caption(f"Geçmiş veri: {len(history)} futbol maçı • {finished_history} tamamlanmış maç • {len(idx)} takım")
-
-    daily_rows=[]
-    for fixture in fixtures:
-        daily_rows.append({**fixture, "scores":all_market_scores(fixture,idx,sample_size)})
-
-    rows=[]
-    for fixture in fixtures:
-        r=strongest(fixture,idx,sample_size) if analysis_mode=="En Güçlü Market" else analyze(fixture,idx,analysis_mode,sample_size)
-        if not r: continue
-        if r["sample_count"]<min_sample*2: continue
-        if r["probability"]<min_prob: continue
-        rows.append(r)
-    rows.sort(key=lambda x:x["probability"],reverse=True)
-    st.session_state["v52"]={"rows":rows[:top_n],"all":rows,"history":history,"h_errors":h_errors,"daily_rows":daily_rows}
-
-data=st.session_state.get("v52")
-if data:
-    st.markdown('<div class="title">⚽ GÜNLÜK TAHMİN LİSTESİ</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Her maç için model yüzdeleri • yeşil ≥ %70 • sarı ≥ %60</div>', unsafe_allow_html=True)
-
-    daily_rows=data.get("daily_rows",[])
-    if daily_rows:
-        table_html = """
-        <div class="daily-wrap">
-          <div class="daily-head">
-            <div>Saat</div><div>Maç</div><div>1.5 Üst</div><div>2.5 Üst</div><div>3.5 Üst</div><div>3.5 Alt</div><div>KG Var</div><div>KG Yok</div>
-          </div>
-        """
-        for m in daily_rows:
-            s=m["scores"]
-            table_html += f"""
-            <div class="daily-row">
-              <div class="dtime">{escape(str(m.get("time") or "—"))}</div>
-              <div class="dmatch">{escape(m["home"])} - {escape(m["away"])}<span class="dleague">{escape(m["league"])}</span></div>
-              {score_cell(s.get("1.5 Üst"))}
-              {score_cell(s.get("2.5 Üst"))}
-              {score_cell(s.get("3.5 Üst"))}
-              {score_cell(s.get("3.5 Alt"))}
-              {score_cell(s.get("KG Var"))}
-              {score_cell(s.get("KG Yok"))}
+            row_html = f"""
+            <div class="fixture-row">
+              <div class="fx-time">{escape(str(m.get("time") or "—"))}</div>
+              <div class="fx-match">{escape(m.get("home",""))} <span style="color:#a1a7b1">-</span> {escape(m.get("away",""))}
+                <span class="fx-score">{escape(status_text)}</span>
+              </div>
+              <div class="fx-market">{pct_html(s.get("1.5 Üst"))}</div>
+              <div class="fx-market">{pct_html(s.get("2.5 Üst"))}</div>
+              <div class="fx-market">{pct_html(s.get("3.5 Üst"))}</div>
+              <div class="fx-market">{pct_html(s.get("3.5 Alt"))}</div>
+              <div class="fx-market">{pct_html(s.get("KG Var"))}</div>
+              <div class="fx-market">{pct_html(s.get("KG Yok"))}</div>
             </div>
             """
-        table_html += "</div>"
-        st.markdown(table_html, unsafe_allow_html=True)
-    else:
-        st.info("Bu filtrede gösterilecek maç bulunamadı.")
+            st.markdown(row_html, unsafe_allow_html=True)
 
-    st.markdown('<div class="title">📌 Günlük Liste Özeti</div>', unsafe_allow_html=True)
-    if data["h_errors"]:
-        st.warning(f"Geçmiş taramasında {len(data['h_errors'])} gün alınamadı.")
-    st.caption("Yüzdeler geçmiş maç performansından üretilen model skorlarıdır; kesin sonuç veya bahis garantisi değildir.")
-
-with st.expander(f"🌍 Maçkolikten gelen tüm ligleri göster ({len(leagues)})"):
-    cols=st.columns(3)
-    for i,name in enumerate(leagues):
-        cols[i%3].write("• "+name)
+st.caption("Tahmin yüzdeleri geçmiş maç istatistiklerinden üretilen model skorlarıdır; kesin sonuç veya bahis garantisi değildir.")

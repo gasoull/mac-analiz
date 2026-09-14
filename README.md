@@ -1,70 +1,28 @@
-# Maç Analiz v1
+# ONUR Tahmin v2
 
-Basit Streamlit arayüzüyle günlük futbol maçlarını gol marketlerine göre sıralar.
+Tarayıcıdan çalışan profesyonel futbol maç tarama paneli.
 
-## Veri nereden geliyor?
-
-Canlı modda **Sportmonks Football API v3** kullanılır.
-
-Uygulama iki veri grubunu çeker:
-
-1. Seçilen tarihin fikstürü:
-   `GET /v3/football/fixtures/date/YYYY-MM-DD`
-2. Seçilen tarihten önceki geçmiş sonuçlar:
-   `GET /v3/football/fixtures/between/START/END`
-
-`participants`, `scores` ve `league` ilişkileri dahil edilir. Sonuçlarda `scores` içindeki
-`CURRENT` skoru kullanılır.
-
-Bu sürüm Maçkolik'ten scraping yapmaz.
-
-## Analiz mantığı
-
-Her maç için iki takımın son N maçı incelenir.
-
-Marketler:
+## Özellikler
 - 1.5 Üst
 - 2.5 Üst
 - 3.5 Alt
 - KG Var
 - KG Yok
+- 5 / 10 / 15 maç sıralama
+- Lig bazlı filtre
+- Minimum olasılık filtresi
+- 60 / 90 / 120 / 180 günlük geçmiş veri
+- Takım başına 5–20 son maç
+- Minimum örnek filtresi
+- Sportmonks tarih aralığı sınırı için otomatik parçalı veri çekme
 
-Ağırlıklar:
-- Ev sahibi genel son maçlar: %35
-- Deplasman genel son maçlar: %35
-- Ev sahibinin iç saha örneği: %15
-- Deplasmanın deplasman örneği: %15
+## Canlı veri
+Sportmonks Football API v3
 
-Küçük örneklemlerin aşırı %0 / %100 üretmesini engellemek için oranlar %50'ye doğru
-yumuşatılır. Bu bir istatistiksel aday sıralama aracıdır; garanti tahmin değildir.
-
-## Kurulum
-
-Python 3.11+ önerilir.
-
-Windows Terminal / PowerShell:
-
-```bash
-pip install -r requirements.txt
-streamlit run app.py
+## Streamlit Secrets
+```toml
+SPORTMONKS_API_TOKEN = "SENIN_TOKENIN"
 ```
 
-Tarayıcı otomatik açılmazsa:
-`http://localhost:8501`
-
-## Sportmonks token
-
-Sportmonks hesabından API token oluşturup programın sol paneline yapıştır.
-
-Token yoksa **Demo Modu** açıktır; arayüz ve hesaplama örnek verilerle çalışır.
-
-## Sonraki sürüm fikirleri
-
-- Lig bazında kalıcı favoriler
-- 0.5 ilk yarı üst
-- Takım golü 0.5 / 1.5
-- H2H etkisi
-- xG ve şut istatistikleri
-- Sportmonks prediction ile kendi model sonucunu yan yana gösterme
-- SQLite cache (API kotasını koruma)
-- CSV/Excel dışa aktarma
+## Yayın
+Streamlit Community Cloud üzerinde `app.py` ana dosyadır.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import requests
+from datetime import timedelta
 
 BASE = "https://api.sportmonks.com/v3/football"
 
@@ -45,12 +46,10 @@ class SportmonksClient:
             out.extend(data)
 
             pagination = payload.get("pagination") or {}
-            has_more = pagination.get("has_more")
-            if has_more is True:
+            if pagination.get("has_more") is True:
                 page += 1
                 continue
 
-            # Bazı yanıtlarda has_more yerine current_page/last_page bulunabilir.
             current = pagination.get("current_page")
             last = pagination.get("last_page")
             if current and last and current < last:
@@ -67,7 +66,32 @@ class SportmonksClient:
         )
 
     def fixtures_between(self, start, end):
-        return self._get_all(
-            f"fixtures/between/{start.isoformat()}/{end.isoformat()}",
-            {"include": "participants;scores;league"}
-        )
+        """
+        Sportmonks free tiers can reject long date ranges.
+        Split the request automatically into <= 95 day windows.
+        """
+        if end < start:
+            return []
+
+        out = []
+        chunk_start = start
+        while chunk_start <= end:
+            chunk_end = min(chunk_start + timedelta(days=94), end)
+            out.extend(
+                self._get_all(
+                    f"fixtures/between/{chunk_start.isoformat()}/{chunk_end.isoformat()}",
+                    {"include": "participants;scores;league"}
+                )
+            )
+            chunk_start = chunk_end + timedelta(days=1)
+
+        # de-duplicate by fixture id
+        seen = set()
+        unique = []
+        for f in out:
+            fid = f.get("id")
+            if fid in seen:
+                continue
+            seen.add(fid)
+            unique.append(f)
+        return unique

@@ -375,12 +375,65 @@ while cur<=end:
     cur += timedelta(days=1)
 
 leagues=sorted({m["league"] for m in selected if m.get("league")},key=str.casefold)
-league_filter=st.selectbox("Lig",["Tüm Ligler"]+leagues)
 
-if league_filter=="Tüm Ligler":
-    filtered=selected
+# Popüler lig menüsü: uzun 50+ lig listesini kullanıcıya göstermeyelim.
+POPULAR_RULES = {
+    "🇹🇷 Süper Lig": ["süper lig", "super lig"],
+    "🏴 Premier League": ["premier league"],
+    "🏴 Championship": ["championship"],
+    "🏴 League One": ["league one", "lig 1"],
+    "🏴 League Two": ["league two", "lig 2"],
+    "🇪🇸 La Liga": ["la liga", "laliga", "primera division"],
+    "🇮🇹 Serie A": ["serie a"],
+    "🇩🇪 Bundesliga": ["bundesliga"],
+    "🇫🇷 Ligue 1": ["ligue 1"],
+    "⭐ Şampiyonlar Ligi": ["champions league", "şampiyonlar ligi"],
+    "🟠 Avrupa Ligi": ["europa league", "avrupa ligi"],
+    "🟢 Konferans Ligi": ["conference league", "konferans ligi"],
+}
+
+def league_matches_rule(league_name, needles):
+    n = (league_name or "").casefold()
+    return any(x.casefold() in n for x in needles)
+
+popular_real_leagues = set()
+for real_name in leagues:
+    for needles in POPULAR_RULES.values():
+        if league_matches_rule(real_name, needles):
+            popular_real_leagues.add(real_name)
+            break
+
+main_league_options = [
+    "🔥 Popüler Maçlar",
+    "🇹🇷 Süper Lig",
+    "🏴 Premier League",
+    "🏴 Championship",
+    "🏴 League One",
+    "🏴 League Two",
+    "🇪🇸 La Liga",
+    "🇮🇹 Serie A",
+    "🇩🇪 Bundesliga",
+    "🇫🇷 Ligue 1",
+    "⭐ Şampiyonlar Ligi",
+    "🟠 Avrupa Ligi",
+    "🟢 Konferans Ligi",
+    "🌍 Diğer Ligler",
+]
+
+league_filter=st.selectbox("Lig", main_league_options)
+
+if league_filter == "🔥 Popüler Maçlar":
+    filtered=[m for m in selected if m.get("league") in popular_real_leagues]
+elif league_filter == "🌍 Diğer Ligler":
+    other_leagues=[x for x in leagues if x not in popular_real_leagues]
+    if other_leagues:
+        other_choice=st.selectbox("Diğer lig seç", other_leagues)
+        filtered=[m for m in selected if m.get("league")==other_choice]
+    else:
+        filtered=[]
 else:
-    filtered=[m for m in selected if m["league"]==league_filter]
+    needles=POPULAR_RULES.get(league_filter, [])
+    filtered=[m for m in selected if league_matches_rule(m.get("league",""), needles)]
 
 fixtures=[m for m in filtered if m["status"]!="FINISHED"]
 
@@ -452,7 +505,7 @@ if data:
         with st.expander(f"Analiz detayı • {r['home']} - {r['away']}"):
             st.json(r["details"])
 
-with st.expander(f"🌍 Seçili tarihte gelen tüm ligler ({len(leagues)})"):
+with st.expander(f"🌍 Maçkolikten gelen tüm ligleri göster ({len(leagues)})"):
     cols=st.columns(3)
     for i,name in enumerate(leagues):
         cols[i%3].write("• "+name)

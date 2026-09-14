@@ -30,10 +30,10 @@ st.markdown("""
   --red:#e31d2b;--red-dark:#bf1420;--ink:#1f2937;--muted:#6b7280;
   --line:#e5e7eb;--soft:#f6f7f9;--green:#16a34a;
 }
-.block-container{max-width:1180px;padding-top:.8rem;padding-bottom:3rem}
+.block-container{max-width:1180px;padding-top:5.2rem;padding-bottom:3rem}
 [data-testid="stSidebar"]{background:#fff;border-right:1px solid var(--line)}
 [data-testid="stSidebar"] .block-container{padding-top:1rem}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;background:linear-gradient(180deg,#ffffff 0%,#fbfbfc 100%);border:1px solid #e7e9ee;border-radius:16px;margin-bottom:16px;box-shadow:0 8px 24px rgba(17,24,39,.045)}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:72px;padding:14px 18px;background:#ffffff;border:1px solid #e3e6eb;border-left:5px solid #e31d2b;border-radius:14px;margin:0 0 18px 0;box-shadow:0 5px 18px rgba(17,24,39,.06);position:relative;z-index:2}
 .brand-wrap{display:flex;align-items:center;gap:14px}
 .brand-mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:#e31d2b;color:#fff;font-weight:950;font-size:16px;letter-spacing:-.03em;box-shadow:inset 0 -2px 0 rgba(0,0,0,.08)}
 .brand-title{font-size:1.35rem;font-weight:950;color:#171a21;line-height:1.02;letter-spacing:-.02em}

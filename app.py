@@ -67,6 +67,25 @@ div[data-testid="stMetric"]{border:1px solid var(--line);border-radius:12px;padd
 .header-meta{display:flex;align-items:center;gap:10px}
 .source-text{font-size:.68rem;color:#8a91a0;font-weight:700}
 
+
+.daily-wrap{margin-top:12px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;background:#fff}
+.daily-head{display:grid;grid-template-columns:72px 1.65fr repeat(5,.72fr);gap:0;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:.68rem;font-weight:900;color:#596273}
+.daily-head div,.daily-row>div{padding:9px 8px;border-right:1px solid #eceff3}
+.daily-head div:last-child,.daily-row>div:last-child{border-right:none}
+.daily-row{display:grid;grid-template-columns:72px 1.65fr repeat(5,.72fr);gap:0;border-bottom:1px solid #edf0f3;align-items:center;font-size:.76rem}
+.daily-row:last-child{border-bottom:none}
+.daily-row:hover{background:#fafafa}
+.dtime{font-weight:900;color:#4b5563}
+.dmatch{font-weight:850;color:#202733;line-height:1.2}
+.dleague{display:block;font-size:.62rem;color:#9097a3;font-weight:600;margin-top:3px}
+.dpct{text-align:center;font-weight:900}
+.good{color:#11844b;background:#effbf4}
+.mid{color:#9a6b00;background:#fff9e8}
+.low{color:#7b8491;background:#f8f9fa}
+@media(max-width:900px){
+ .daily-head,.daily-row{grid-template-columns:58px 1.4fr repeat(5,.72fr)}
+ .daily-head div,.daily-row>div{padding:7px 5px;font-size:.65rem}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -304,6 +323,19 @@ def strongest(fixture, idx, sample_size=8):
     rows=[x for x in rows if x]
     return max(rows,key=lambda x:x["probability"]) if rows else None
 
+def all_market_scores(fixture, idx, sample_size=8):
+    out={}
+    for market in MARKETS:
+        r=analyze(fixture,idx,market,sample_size)
+        out[market]=None if not r else r["probability"]
+    return out
+
+def score_cell(value):
+    if value is None:
+        return '<div class="dpct low">—</div>'
+    cls="good" if value>=70 else ("mid" if value>=60 else "low")
+    return f'<div class="dpct {cls}">%{value:.0f}</div>'
+
 def initials(name):
     parts=[p for p in (name or "").replace("-"," ").split() if p]
     return "".join(x[0] for x in parts[:2]).upper() or "FC"
@@ -458,6 +490,11 @@ if run:
     idx=build_team_history(history)
     finished_history = sum(1 for m in history if m.get("status") == "FINISHED")
     st.caption(f"Geçmiş veri: {len(history)} futbol maçı • {finished_history} tamamlanmış maç • {len(idx)} takım")
+
+    daily_rows=[]
+    for fixture in fixtures:
+        daily_rows.append({**fixture, "scores":all_market_scores(fixture,idx,sample_size)})
+
     rows=[]
     for fixture in fixtures:
         r=strongest(fixture,idx,sample_size) if analysis_mode=="En Güçlü Market" else analyze(fixture,idx,analysis_mode,sample_size)
@@ -466,10 +503,39 @@ if run:
         if r["probability"]<min_prob: continue
         rows.append(r)
     rows.sort(key=lambda x:x["probability"],reverse=True)
-    st.session_state["v52"]={"rows":rows[:top_n],"all":rows,"history":history,"h_errors":h_errors}
+    st.session_state["v52"]={"rows":rows[:top_n],"all":rows,"history":history,"h_errors":h_errors,"daily_rows":daily_rows}
 
 data=st.session_state.get("v52")
 if data:
+    st.markdown('<div class="title">⚽ Günün Maçları ve Gol Tahminleri</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Her maç için model yüzdeleri • yeşil ≥ %70 • sarı ≥ %60</div>', unsafe_allow_html=True)
+
+    daily_rows=data.get("daily_rows",[])
+    if daily_rows:
+        table_html = """
+        <div class="daily-wrap">
+          <div class="daily-head">
+            <div>Saat</div><div>Maç</div><div>1.5 Üst</div><div>2.5 Üst</div><div>3.5 Alt</div><div>KG Var</div><div>KG Yok</div>
+          </div>
+        """
+        for m in daily_rows:
+            s=m["scores"]
+            table_html += f"""
+            <div class="daily-row">
+              <div class="dtime">{escape(str(m.get("time") or "—"))}</div>
+              <div class="dmatch">{escape(m["home"])} - {escape(m["away"])}<span class="dleague">{escape(m["league"])}</span></div>
+              {score_cell(s.get("1.5 Üst"))}
+              {score_cell(s.get("2.5 Üst"))}
+              {score_cell(s.get("3.5 Alt"))}
+              {score_cell(s.get("KG Var"))}
+              {score_cell(s.get("KG Yok"))}
+            </div>
+            """
+        table_html += "</div>"
+        st.markdown(table_html, unsafe_allow_html=True)
+    else:
+        st.info("Bu filtrede gösterilecek maç bulunamadı.")
+
     st.markdown('<div class="title">⭐ En Güçlü Marketler</div>', unsafe_allow_html=True)
     if data["h_errors"]:
         st.warning(f"Geçmiş taramasında {len(data['h_errors'])} gün alınamadı.")

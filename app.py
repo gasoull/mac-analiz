@@ -33,12 +33,12 @@ st.markdown("""
 .block-container{max-width:1180px;padding-top:.8rem;padding-bottom:3rem}
 [data-testid="stSidebar"]{background:#fff;border-right:1px solid var(--line)}
 [data-testid="stSidebar"] .block-container{padding-top:1rem}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
-.brand-wrap{display:flex;align-items:center;gap:12px}
-.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--red);color:#fff;font-weight:900;font-size:20px}
-.brand-title{font-size:1.28rem;font-weight:900;color:var(--ink);line-height:1.05}
-.brand-sub{font-size:.76rem;color:var(--muted);margin-top:3px}
-.live-pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#fff1f2;color:var(--red-dark);border:1px solid #fecdd3;font-size:.72rem;font-weight:850}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;background:linear-gradient(180deg,#ffffff 0%,#fbfbfc 100%);border:1px solid #e7e9ee;border-radius:16px;margin-bottom:16px;box-shadow:0 8px 24px rgba(17,24,39,.045)}
+.brand-wrap{display:flex;align-items:center;gap:14px}
+.brand-mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:#e31d2b;color:#fff;font-weight:950;font-size:16px;letter-spacing:-.03em;box-shadow:inset 0 -2px 0 rgba(0,0,0,.08)}
+.brand-title{font-size:1.35rem;font-weight:950;color:#171a21;line-height:1.02;letter-spacing:-.02em}
+.brand-sub{font-size:.75rem;color:#7a8190;margin-top:5px;font-weight:600}
+.live-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:9px;background:#fff5f5;color:#c41724;border:1px solid #ffd7da;font-size:.69rem;font-weight:900;white-space:nowrap}
 .title{font-size:1.1rem;font-weight:900;color:var(--ink);margin:15px 0 4px}
 .subtitle{color:var(--muted);font-size:.78rem;margin-bottom:8px}
 .match-card{background:#fff;border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;box-shadow:0 2px 8px rgba(17,24,39,.035)}
@@ -63,6 +63,10 @@ st.markdown("""
 div[data-testid="stMetric"]{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fff;box-shadow:none}
 .stButton button{border-radius:10px!important;font-weight:850!important}
 .stButton button[kind="primary"]{background:var(--red)!important;border-color:var(--red)!important}
+
+.header-meta{display:flex;align-items:center;gap:10px}
+.source-text{font-size:.68rem;color:#8a91a0;font-weight:700}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -323,13 +327,16 @@ with st.sidebar:
 st.markdown("""
 <div class="topbar">
   <div class="brand-wrap">
-    <div class="brand-mark">OB</div>
+    <div class="brand-mark">ON</div>
     <div>
       <div class="brand-title">ONUR By Tahmin</div>
-      <div class="brand-sub">İddaa Analiz Programı</div>
+      <div class="brand-sub">Futbol maç ve gol marketi analiz ekranı</div>
     </div>
   </div>
-  <div class="live-pill">● MAÇKOLİK VERİ MODU</div>
+  <div class="header-meta">
+    <div class="source-text">Veri Kaynağı</div>
+    <div class="live-pill">● MAÇKOLİK</div>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 

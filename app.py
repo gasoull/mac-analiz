@@ -180,17 +180,10 @@ with st.sidebar:
     st.caption("Yalnızca istatistiksel sıralamadır; garanti tahmin değildir.")
 
 
-st.markdown("""
-<div class="hero">
-  <div class="logo-row">
-    <div class="logo-ball">⚽</div>
-    <div>
-      <h1>ONUR TAHMİN PROGRAMI</h1>
-      <p>Canlı fikstür • gerçek takım isimleri • gol marketi analizi</p>
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+st.image(
+    "onur_by_tahmin_banner.png",
+    use_container_width=True
+)
 
 # Competition coverage
 try:

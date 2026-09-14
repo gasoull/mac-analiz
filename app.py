@@ -229,7 +229,7 @@ def fetch_day(day):
     return out
 
 @st.cache_data(ttl=120, show_spinner=False)
-def load_day_v10(day_iso, cache_version="v10"):
+def load_day_v101(day_iso, cache_version="v10.1"):
     return fetch_day(datetime.strptime(day_iso,"%Y-%m-%d").date())
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -439,7 +439,7 @@ selected_date = st.session_state.daily_date
 
 # Load selected day's matches.
 try:
-    selected = load_day_v10(selected_date.isoformat(), "v10-schema-fix")
+    selected = load_day_v101(selected_date.isoformat(), "v10.1-attribute-fix")
 except Exception as exc:
     selected = []
     st.error(f"Maçkolik verisi alınamadı: {exc}")
@@ -486,10 +486,22 @@ BLOCKED_TERMS = [
 ]
 
 def classify_league(match):
-    country = clean_text(match.get("country") or "")
-    division = clean_text(match.get("division") or "")
-    code = clean_text(match.get("league_code") or "")
-    whole = clean_text(match.get("league") or "")
+    # Backward-compatible: accept either a normalized match dict or a league-name string.
+    if isinstance(match, dict):
+        country = clean_text(match.get("country") or "")
+        division = clean_text(match.get("division") or "")
+        code = clean_text(match.get("league_code") or "")
+        whole = clean_text(match.get("league") or "")
+    else:
+        country = ""
+        division = ""
+        code = ""
+        whole = clean_text(str(match or ""))
+        # Parse our normalized "Country • Division" representation when present.
+        if " • " in str(match or ""):
+            parts = str(match).split(" • ", 1)
+            country = clean_text(parts[0])
+            division = clean_text(parts[1])
 
     if any(x in division for x in BLOCKED_TERMS) or any(x in whole for x in BLOCKED_TERMS):
         return None
@@ -566,7 +578,7 @@ def classify_league(match):
 raw_selected = list(selected)
 selected = []
 for m in raw_selected:
-    label = classify_league(m.get("league") or "")
+    label = classify_league(m)
     if label:
         mm = dict(m)
         mm["display_league"] = label

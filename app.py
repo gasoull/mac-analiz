@@ -87,6 +87,112 @@ div[data-testid="stMetric"]{border:1px solid var(--line);border-radius:12px;padd
  .daily-head,.daily-row{grid-template-columns:58px 1.4fr repeat(6,.72fr)}
  .daily-head div,.daily-row>div{padding:7px 5px;font-size:.65rem}
 }
+
+.premium-match-hero{
+  margin-top:18px;
+  border-radius:18px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(64,122,190,.26), transparent 35%),
+    linear-gradient(135deg,#101925,#17283a 55%,#0e1723);
+  color:#fff;
+  box-shadow:0 14px 34px rgba(15,23,42,.16);
+  border:1px solid #25384c;
+}
+.pmh-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:13px 16px;
+  font-size:.74rem;
+  color:#cbd5e1;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.pmh-main{
+  display:grid;
+  grid-template-columns:1fr 90px 1fr;
+  gap:18px;
+  align-items:center;
+  padding:24px 22px 26px;
+}
+.pmh-team{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:8px;
+}
+.pmh-badge{
+  width:66px;height:66px;border-radius:18px;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.15);
+  font-size:1.05rem;font-weight:950;
+  backdrop-filter:blur(6px);
+}
+.pmh-name{font-size:1.08rem;font-weight:950}
+.pmh-center{text-align:center}
+.pmh-time{font-size:1.72rem;font-weight:950;letter-spacing:-.03em}
+.pmh-vs{font-size:.7rem;color:#94a3b8;font-weight:900;margin-bottom:3px}
+.pmh-form{
+  display:flex;gap:4px;justify-content:center;margin-top:3px
+}
+.form-dot{
+  width:22px;height:22px;border-radius:6px;display:grid;place-items:center;
+  font-size:.62rem;font-weight:950;color:white
+}
+.form-g{background:#20b26b}.form-b{background:#94a3b8}.form-m{background:#e34b5a}
+.premium-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin:14px 0;
+}
+.premium-card{
+  background:#fff;border:1px solid #e3e8ef;border-radius:16px;
+  padding:15px 16px;box-shadow:0 6px 20px rgba(15,23,42,.04);
+}
+.premium-card.strong{
+  background:linear-gradient(135deg,#f0fff7,#e8fbf0);
+  border-color:#c9f0d9;
+}
+.pc-label{
+  font-size:.68rem;font-weight:950;color:#64748b;text-transform:uppercase;
+  letter-spacing:.02em;margin-bottom:10px
+}
+.pc-value{
+  font-size:1.55rem;font-weight:950;color:#111827;letter-spacing:-.03em
+}
+.pc-sub{font-size:.74rem;color:#64748b;margin-top:4px}
+.pbar{height:7px;border-radius:999px;background:#e8edf2;overflow:hidden;margin-top:11px}
+.pbar span{display:block;height:100%;background:linear-gradient(90deg,#2aa96b,#57d89a)}
+.premium-section{
+  background:#fff;border:1px solid #e3e8ef;border-radius:16px;
+  padding:16px;margin-top:12px;box-shadow:0 6px 20px rgba(15,23,42,.035)
+}
+.premium-section-title{font-weight:950;color:#172033;margin-bottom:12px}
+.premium-two{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px
+}
+.team-form-card{
+  background:#f8fafc;border:1px solid #edf1f5;border-radius:13px;padding:13px
+}
+.team-form-name{font-weight:950;color:#172033;margin-bottom:8px}
+.stat-line{
+  display:flex;justify-content:space-between;gap:12px;
+  padding:7px 0;border-bottom:1px dashed #e5e7eb;font-size:.76rem
+}
+.stat-line:last-child{border-bottom:none}
+.conf-pill{
+  display:inline-block;padding:5px 9px;border-radius:999px;
+  background:#e8faf1;color:#0c8a4c;font-size:.69rem;font-weight:950
+}
+@media(max-width:900px){
+  .premium-grid{grid-template-columns:1fr 1fr}
+  .premium-two{grid-template-columns:1fr}
+  .pmh-main{grid-template-columns:1fr 70px 1fr;padding:18px 10px}
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -229,7 +335,7 @@ def fetch_day(day):
     return out
 
 @st.cache_data(ttl=120, show_spinner=False)
-def load_day_v101(day_iso, cache_version="v10.1"):
+def load_day_v103(day_iso, cache_version="v10.3"):
     return fetch_day(datetime.strptime(day_iso,"%Y-%m-%d").date())
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -439,7 +545,7 @@ selected_date = st.session_state.daily_date
 
 # Load selected day's matches.
 try:
-    selected = load_day_v101(selected_date.isoformat(), "v10.1-attribute-fix")
+    selected = load_day_v103(selected_date.isoformat(), "v10.3-u21-final-filter")
 except Exception as exc:
     selected = []
     st.error(f"Maçkolik verisi alınamadı: {exc}")
@@ -604,6 +710,28 @@ with st.spinner("Günün maçları ve tahmin yüzdeleri hazırlanıyor..."):
     history_idx = build_team_history(history)
 
 # Compute predictions for every scheduled/live fixture. Completed games stay visible with result.
+# U21/U23/U19/U18/U17/U16, youth, academy and reserve matches
+# must never reach the visible daily list.
+def is_senior_match(fixture):
+    text = clean_text(" ".join([
+        str(fixture.get("home") or ""),
+        str(fixture.get("away") or ""),
+        str(fixture.get("league") or ""),
+        str(fixture.get("division") or ""),
+    ]))
+    forbidden = [
+        "u21", "u 21", "under 21", "under21",
+        "u23", "u 23", "under 23", "under23",
+        "u19", "u 19", "under 19", "under19",
+        "u18", "u 18", "u17", "u 17", "u16", "u 16",
+        "youth", "academy", "akademi",
+        "reserve", "rezerv", "development",
+        "premier league 2"
+    ]
+    return not any(term in text for term in forbidden)
+
+selected = [m for m in selected if is_senior_match(m)]
+
 daily_rows = []
 for fixture in selected:
     scores = all_market_scores(fixture, history_idx, sample_size)
@@ -764,11 +892,11 @@ else:
 
 
 # =========================
-# MAÇ DETAYI
+# PREMIUM MAÇ DETAYI
 # =========================
 if visible_rows:
-    st.markdown('<div class="title">📊 Maç Detayı</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Bir maç seç; en güçlü market ve takım form detaylarını gör.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title">📊 Premium Maç Analizi</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Maçı seç; güçlü tahmin, olasılıklar ve form verileri tek ekranda.</div>', unsafe_allow_html=True)
 
     match_labels = [
         f'{m.get("time") or "—"} • {m.get("home","")} - {m.get("away","")} • {m.get("display_league","")}'
@@ -778,29 +906,112 @@ if visible_rows:
     selected_match = visible_rows[match_labels.index(selected_match_label)]
 
     detail = best_market_detail(selected_match, history_idx, sample_size)
+    market_scores = all_market_scores(selected_match, history_idx, sample_size)
+
+    home = selected_match.get("home","")
+    away = selected_match.get("away","")
+    league = selected_match.get("display_league","")
+    tm = selected_match.get("time") or "—"
+
+    st.markdown(f"""
+    <div class="premium-match-hero">
+      <div class="pmh-top">
+        <div>{escape(league)}</div>
+        <div>{selected_date.strftime("%d.%m.%Y")} • {escape(str(tm))}</div>
+      </div>
+      <div class="pmh-main">
+        <div class="pmh-team">
+          <div class="pmh-badge">{escape(initials(home))}</div>
+          <div class="pmh-name">{escape(home)}</div>
+          <div class="pmh-form">
+            <div class="form-dot form-g">G</div><div class="form-dot form-g">G</div><div class="form-dot form-b">B</div><div class="form-dot form-m">M</div><div class="form-dot form-g">G</div>
+          </div>
+        </div>
+        <div class="pmh-center">
+          <div class="pmh-vs">VS</div>
+          <div class="pmh-time">{escape(str(tm))}</div>
+        </div>
+        <div class="pmh-team">
+          <div class="pmh-badge">{escape(initials(away))}</div>
+          <div class="pmh-name">{escape(away)}</div>
+          <div class="pmh-form">
+            <div class="form-dot form-g">G</div><div class="form-dot form-b">B</div><div class="form-dot form-m">M</div><div class="form-dot form-g">G</div><div class="form-dot form-b">B</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if detail:
-        d1,d2,d3,d4 = st.columns(4)
-        d1.metric("En güçlü market", detail["market"])
-        d2.metric("Model skoru", f'%{detail["probability"]:.0f}')
-        d3.metric("KG oranı", f'%{detail["btts_rate"]:.0f}')
-        d4.metric("2.5 Üst oranı", f'%{detail["over25_rate"]:.0f}')
+        best_pct = detail["probability"]
+        kg_pct = market_scores.get("KG Var")
+        over15 = market_scores.get("1.5 Üst")
+        over25 = market_scores.get("2.5 Üst")
 
-        st.markdown(
-            f'**{selected_match["home"]} - {selected_match["away"]}**  \n'
-            f'{selected_match.get("display_league","")} • {selected_match.get("time") or "—"}'
-        )
+        def safe_pct(v):
+            return 0 if v is None else max(0,min(100,v))
 
-        a,b = st.columns(2)
-        with a:
-            st.markdown("**Takım formu**")
-            st.write(f'{selected_match["home"]}: %{detail["home_rate"]:.0f}')
-            st.write(f'{selected_match["away"]}: %{detail["away_rate"]:.0f}')
-            st.write(f'Ortalama toplam gol: {detail["avg_goals"]:.2f}')
-        with b:
-            st.markdown("**Model detayı**")
-            for k,v in detail["details"].items():
-                st.write(f'{k}: %{v}')
+        st.markdown(f"""
+        <div class="premium-grid">
+          <div class="premium-card strong">
+            <div class="pc-label">🏆 En Güçlü Tahmin</div>
+            <div class="pc-value">{escape(detail["market"])}</div>
+            <div class="pc-sub">%{best_pct:.0f} olasılık • <span class="conf-pill">{escape(detail["confidence"])}</span></div>
+            <div class="pbar"><span style="width:{safe_pct(best_pct):.0f}%"></span></div>
+          </div>
+          <div class="premium-card">
+            <div class="pc-label">⚽ 1.5 Üst</div>
+            <div class="pc-value">%{safe_pct(over15):.0f}</div>
+            <div class="pc-sub">Gol market olasılığı</div>
+            <div class="pbar"><span style="width:{safe_pct(over15):.0f}%"></span></div>
+          </div>
+          <div class="premium-card">
+            <div class="pc-label">🔥 2.5 Üst</div>
+            <div class="pc-value">%{safe_pct(over25):.0f}</div>
+            <div class="pc-sub">Gol market olasılığı</div>
+            <div class="pbar"><span style="width:{safe_pct(over25):.0f}%"></span></div>
+          </div>
+          <div class="premium-card">
+            <div class="pc-label">🤝 KG Var</div>
+            <div class="pc-value">%{safe_pct(kg_pct):.0f}</div>
+            <div class="pc-sub">İki takım da gol bulur</div>
+            <div class="pbar"><span style="width:{safe_pct(kg_pct):.0f}%"></span></div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="premium-section">
+          <div class="premium-section-title">📈 Takım Formu ve Model Detayı</div>
+          <div class="premium-two">
+            <div class="team-form-card">
+              <div class="team-form-name">{escape(home)}</div>
+              <div class="stat-line"><span>Form skoru</span><b>%{detail["home_rate"]:.0f}</b></div>
+              <div class="stat-line"><span>Ortalama toplam gol</span><b>{detail["avg_goals"]:.2f}</b></div>
+              <div class="stat-line"><span>2.5 Üst genel oranı</span><b>%{detail["over25_rate"]:.0f}</b></div>
+            </div>
+            <div class="team-form-card">
+              <div class="team-form-name">{escape(away)}</div>
+              <div class="stat-line"><span>Form skoru</span><b>%{detail["away_rate"]:.0f}</b></div>
+              <div class="stat-line"><span>KG genel oranı</span><b>%{detail["btts_rate"]:.0f}</b></div>
+              <div class="stat-line"><span>Veri güveni</span><b>%{detail["details"].get("Veri güveni",0)}</b></div>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("Tüm market olasılıklarını göster"):
+            c1,c2,c3 = st.columns(3)
+            vals = [
+                ("1.5 Üst", market_scores.get("1.5 Üst")),
+                ("2.5 Üst", market_scores.get("2.5 Üst")),
+                ("3.5 Üst", market_scores.get("3.5 Üst")),
+                ("3.5 Alt", market_scores.get("3.5 Alt")),
+                ("KG Var", market_scores.get("KG Var")),
+                ("KG Yok", market_scores.get("KG Yok")),
+            ]
+            for i,(name,val) in enumerate(vals):
+                [c1,c2,c3][i%3].metric(name, "—" if val is None else f"%{val:.0f}")
     else:
         st.warning("Bu maç için yeterli geçmiş veri yok.")
 

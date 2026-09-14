@@ -1,275 +1,399 @@
-import streamlit as st
-from datetime import date, timedelta
+from __future__ import annotations
 
-from sportmonks import SportmonksClient, SportmonksError
-from analyzer import build_history_index, analyze_fixture, demo_fixtures, demo_history
+from datetime import date, timedelta
+from html import escape
+
+import streamlit as st
+
+from football_data import FootballDataClient, FootballDataError
+from analyzer import MARKETS, build_history_index, analyze_fixture, strongest_market
+
 
 st.set_page_config(
-    page_title="ONUR Tahmin",
+    page_title="ONUR Tahmin Programı",
     page_icon="⚽",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
-
-MARKETS = ["1.5 Üst", "2.5 Üst", "3.5 Alt", "KG Var", "KG Yok"]
 
 st.markdown("""
 <style>
-.block-container{padding-top:1rem;padding-bottom:2rem;max-width:1280px}
-[data-testid="stSidebar"]{border-right:1px solid rgba(127,127,127,.16)}
+:root{
+  --ink:#162033;
+  --muted:#758195;
+  --line:#e6eaf0;
+  --soft:#f7f9fc;
+  --green:#13b76a;
+  --green2:#e9fbf2;
+  --gold:#d8a83b;
+}
+.block-container{max-width:1250px;padding-top:1.25rem;padding-bottom:3rem}
+[data-testid="stSidebar"]{background:#fbfcfe;border-right:1px solid #edf0f4}
+[data-testid="stSidebar"] .block-container{padding-top:1.2rem}
 .hero{
-    padding:20px 24px;border-radius:22px;
-    background:linear-gradient(135deg,#111217,#252731);
-    color:#fff;margin-bottom:18px;box-shadow:0 10px 28px rgba(0,0,0,.14)
+  background:linear-gradient(135deg,#111827 0%,#1c2940 62%,#0d1524 100%);
+  color:white;border-radius:22px;padding:20px 24px;margin-bottom:18px;
+  box-shadow:0 12px 34px rgba(20,31,50,.16);
 }
-.hero h1{font-size:2.15rem;margin:0;font-weight:850;letter-spacing:-.04em}
-.hero p{margin:.35rem 0 0;opacity:.7}
-.section{font-size:1.18rem;font-weight:800;margin:.2rem 0 .65rem}
+.logo-row{display:flex;align-items:center;gap:14px}
+.logo-ball{
+  width:52px;height:52px;border-radius:18px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#f7d477,#b98018);font-size:28px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 8px 24px rgba(216,168,59,.25)
+}
+.hero h1{font-size:2rem;line-height:1;margin:0;font-weight:900;letter-spacing:-.035em}
+.hero p{margin:.45rem 0 0;color:#bfc8d6;font-size:.93rem}
+.section-title{font-size:1.22rem;font-weight:850;color:var(--ink);margin:18px 0 8px}
+.live-pill{
+  display:inline-block;padding:6px 10px;border-radius:999px;background:#eafaf2;
+  color:#07884a;font-size:.78rem;font-weight:800;border:1px solid #ccefdc
+}
+.league-strip{
+  display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px
+}
+.league-chip{
+  border:1px solid var(--line);background:white;padding:7px 10px;border-radius:10px;
+  color:#475569;font-size:.78rem;font-weight:700
+}
 .match-card{
-    border:1px solid rgba(127,127,127,.18);border-radius:18px;padding:15px 17px;
-    margin:9px 0;background:rgba(127,127,127,.045)
+  background:#fff;border:1px solid #e3e8ef;border-radius:20px;margin:12px 0;
+  box-shadow:0 6px 22px rgba(32,45,66,.055);overflow:hidden
 }
-.rank{font-size:.78rem;opacity:.62}
-.match{font-size:1.08rem;font-weight:780;margin-top:3px}
-.prob{font-size:1.55rem;font-weight:880;letter-spacing:-.03em;margin-top:3px}
-.badge{
-    display:inline-block;padding:4px 9px;margin-left:6px;border-radius:999px;
-    background:rgba(127,127,127,.13);font-size:.76rem;font-weight:650
+.mc-top{
+  display:flex;align-items:center;justify-content:space-between;padding:11px 16px;
+  border-bottom:1px solid #eef1f5;background:#fbfcfe;color:#7c8799;font-size:.78rem
 }
-.meta{opacity:.64;font-size:.82rem;margin-top:4px}
+.mc-rank{
+  background:#e9fbf2;color:#09884a;border-radius:10px;padding:5px 9px;font-weight:900
+}
+.mc-main{
+  display:grid;grid-template-columns:1fr 1.05fr;gap:16px;padding:17px 18px 14px;
+  align-items:center
+}
+.teams{
+  display:grid;grid-template-columns:1fr 34px 1fr;align-items:center;gap:10px
+}
+.team{display:flex;align-items:center;gap:10px;min-width:0}
+.team.right{justify-content:flex-end;text-align:right}
+.crest{
+  width:46px;height:46px;object-fit:contain;border:1px solid #edf0f4;
+  border-radius:13px;padding:6px;background:white;flex:none
+}
+.crest-placeholder{
+  width:46px;height:46px;border-radius:13px;background:#f2f5f9;
+  display:grid;place-items:center;font-weight:900;color:#8b97a8;flex:none
+}
+.team-name{font-weight:850;color:#172033;font-size:.98rem;line-height:1.15}
+.team-country{font-size:.72rem;color:#8993a3;margin-top:3px}
+.vs{text-align:center;font-weight:900;color:#a1a9b6}
+.pickbox{
+  border:1px solid #d9f2e6;background:linear-gradient(135deg,#f3fff9,#eafbf3);
+  border-radius:16px;padding:14px 16px;display:grid;grid-template-columns:auto 1fr;
+  gap:8px 15px;align-items:center
+}
+.prob{font-size:2rem;font-weight:950;letter-spacing:-.04em;color:#152033}
+.market{font-size:1rem;font-weight:900;color:#142034}
+.conf{justify-self:end;background:#d9f8e8;color:#078648;padding:6px 9px;border-radius:10px;font-weight:850;font-size:.78rem}
+.bar{height:8px;border-radius:999px;background:#dce5ea;overflow:hidden;grid-column:1/-1}
+.bar>span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#13b76a,#55dfa0)}
+.stats{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#e9edf2;
+  border-top:1px solid #eef1f5
+}
+.stat{background:#f8fafc;padding:11px 14px;text-align:center}
+.stat .k{font-size:.7rem;color:#7f8999}
+.stat .v{font-weight:900;color:#1a2334;margin-top:2px}
+.card-note{padding:10px 16px;color:#7c8796;font-size:.75rem;border-top:1px solid #eef1f5}
 div[data-testid="stMetric"]{
-    border:1px solid rgba(127,127,127,.16);border-radius:16px;padding:10px 13px;
-    background:rgba(127,127,127,.04)
+  border:1px solid #e7ebf0;border-radius:16px;padding:11px 13px;background:#fff;
+  box-shadow:0 4px 14px rgba(28,42,60,.035)
 }
-.stButton button{border-radius:12px!important;font-weight:760!important}
-.notice{
-    padding:10px 12px;border-radius:12px;background:rgba(127,127,127,.07);
-    border:1px solid rgba(127,127,127,.13);font-size:.86rem
-}
+.stButton button{border-radius:12px!important;font-weight:800!important}
 </style>
 """, unsafe_allow_html=True)
 
-# API token
-cloud_token = ""
+
+def crest_html(url, alt):
+    if url:
+        return f'<img class="crest" src="{escape(url, quote=True)}" alt="{escape(alt)}">'
+    initials = "".join(x[:1] for x in alt.split()[:2]).upper()
+    return f'<div class="crest-placeholder">{escape(initials)}</div>'
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def cached_competitions(token):
+    return FootballDataClient(token).competitions()
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def cached_day_matches(token, day_iso):
+    return FootballDataClient(token).matches_by_date(day_iso)
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def cached_history(token, start_iso, end_iso, comp_ids):
+    ids = list(comp_ids) if comp_ids else None
+    return FootballDataClient(token).matches_between(
+        start_iso, end_iso, ids, status="FINISHED"
+    )
+
+
+token = ""
 try:
-    cloud_token = st.secrets.get("SPORTMONKS_API_TOKEN", "")
+    token = st.secrets.get("FOOTBALL_DATA_API_TOKEN", "")
 except Exception:
     pass
 
 with st.sidebar:
     st.markdown("## ⚽ ONUR Tahmin")
-    st.caption("Maç tarama ve olasılık paneli")
+    st.caption("Canlı futbol analiz paneli")
     st.divider()
 
-    if cloud_token:
-        token = cloud_token
-        demo = st.toggle("Demo modu", value=False)
-        if not demo:
-            st.success("Canlı veri bağlı")
+    if token:
+        st.markdown('<span class="live-pill">● CANLI MOD</span>', unsafe_allow_html=True)
+        st.caption("football-data.org bağlı")
     else:
-        token = st.text_input("Sportmonks API Token", type="password")
-        demo = st.toggle("Demo modu", value=not bool(token))
-        if token and not demo:
-            st.success("Canlı veri açık")
-        elif demo:
-            st.info("Demo verisi")
+        st.error("API anahtarı bulunamadı.")
+        st.code('FOOTBALL_DATA_API_TOKEN = "..."', language="toml")
+        st.stop()
 
-    st.markdown("### Veri Ayarları")
-    history_label = st.selectbox(
+    st.markdown("### Model Ayarları")
+    history_days = st.select_slider(
         "Geçmiş veri",
-        ["Akıllı (120 gün)", "60 gün", "90 gün", "120 gün", "180 gün"],
-        index=0
+        options=[45,60,90,120],
+        value=90,
+        format_func=lambda x: f"{x} gün"
     )
-    history_days = {
-        "Akıllı (120 gün)":120, "60 gün":60, "90 gün":90,
-        "120 gün":120, "180 gün":180
-    }[history_label]
-
     sample_size = st.select_slider(
         "Takım başına son maç",
-        options=[5,8,10,12,15,20],
+        options=[5,8,10,12,15],
         value=10
     )
-
-    min_data = st.select_slider(
+    min_team_sample = st.select_slider(
         "Minimum takım örneği",
-        options=[3,5,6,8,10],
-        value=5
+        options=[3,4,5,6,8],
+        value=4
     )
 
     st.divider()
-    st.caption("Kaynak: Sportmonks Football API v3")
-    st.caption("Free plan: Danish Superliga + Scottish Premiership")
+    st.caption("Veri: football-data.org API v4")
+    st.caption("Yalnızca istatistiksel sıralamadır; garanti tahmin değildir.")
+
 
 st.markdown("""
 <div class="hero">
-  <h1>ONUR Tahmin</h1>
-  <p>Günün maçlarını gol marketlerine göre tarar, olasılık ve veri güvenine göre sıralar.</p>
+  <div class="logo-row">
+    <div class="logo-ball">⚽</div>
+    <div>
+      <h1>ONUR TAHMİN PROGRAMI</h1>
+      <p>Canlı fikstür • gerçek takım isimleri • gol marketi analizi</p>
+    </div>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
-today = date.today()
+# Competition coverage
+try:
+    competitions = cached_competitions(token)
+except FootballDataError as e:
+    st.error(str(e))
+    st.stop()
 
-st.markdown('<div class="section">Maç Tarayıcı</div>', unsafe_allow_html=True)
+comp_by_code = {
+    (c.get("code") or str(c.get("id"))): c
+    for c in competitions
+    if c.get("name")
+}
+competition_names = sorted(
+    [c.get("name") for c in competitions if c.get("name")],
+    key=str.casefold
+)
 
-d1, d2, d3, d4 = st.columns([1.25,1.55,1,1])
-with d1:
-    day_mode = st.radio("Tarih", ["Bugün","Yarın","Özel"], horizontal=True)
-    if day_mode == "Bugün":
-        target_date = today
-    elif day_mode == "Yarın":
-        target_date = today + timedelta(days=1)
+st.markdown('<div class="section-title">Maç Tarayıcı</div>', unsafe_allow_html=True)
+
+c1,c2,c3,c4 = st.columns([1.25,1.4,1.05,1.15])
+with c1:
+    date_mode = st.radio("Tarih", ["Bugün","Yarın","Özel"], horizontal=True)
+    if date_mode == "Bugün":
+        target = date.today()
+    elif date_mode == "Yarın":
+        target = date.today() + timedelta(days=1)
     else:
-        target_date = st.date_input("Özel tarih", value=today)
+        target = st.date_input("Özel tarih", value=date.today())
 
-with d2:
-    market_choice = st.selectbox(
-        "Analiz türü",
-        ["En Güçlü Market"] + MARKETS
-    )
-with d3:
-    top_n = st.selectbox("Kaç aday?", [5,10,15], index=1)
-with d4:
-    min_prob = st.slider("Min. olasılık", 50,90,65,1)
+with c2:
+    analysis_type = st.selectbox("Analiz türü", ["En Güçlü Market"] + MARKETS)
+with c3:
+    top_n = st.selectbox("Gösterilecek", [5,10,15], index=1)
+with c4:
+    min_prob = st.slider("Min. olasılık", 50,90,65)
 
-b1, b2 = st.columns([1.05,4])
-with b1:
-    load = st.button("⚡ Taramayı Başlat", type="primary", use_container_width=True)
+league_filter = st.selectbox(
+    "Lig",
+    ["Tüm Erişilebilir Ligler"] + competition_names,
+    index=0
+)
 
-for key, default in {
-    "raw_fixtures":[],
-    "raw_history":[],
-    "last_date":None
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
+run = st.button("⚡ Canlı Analizi Başlat", type="primary")
 
-if load:
-    if demo:
-        st.session_state.raw_fixtures = demo_fixtures(target_date)
-        st.session_state.raw_history = demo_history(target_date)
-        st.session_state.last_date = str(target_date)
-    else:
-        if not token:
-            st.error("Canlı veri için Sportmonks API token gerekli.")
-            st.stop()
+if not run and "results_v4" not in st.session_state:
+    st.info("Tarihi ve marketi seçip **Canlı Analizi Başlat** butonuna bas.")
 
-        client = SportmonksClient(token)
-        start = target_date - timedelta(days=history_days)
-        end = target_date - timedelta(days=1)
+if run:
+    try:
+        with st.spinner("Canlı fikstür ve geçmiş maçlar yükleniyor..."):
+            day_matches = cached_day_matches(token, target.isoformat())
 
-        try:
-            with st.spinner(f"{target_date} fikstürü ve {history_days} günlük geçmiş veri taranıyor..."):
-                st.session_state.raw_fixtures = client.fixtures_by_date(target_date)
-                st.session_state.raw_history = client.fixtures_between(start, end)
-                st.session_state.last_date = str(target_date)
-        except SportmonksError as e:
-            st.error(str(e))
-            st.stop()
+            if league_filter != "Tüm Erişilebilir Ligler":
+                day_matches = [
+                    m for m in day_matches
+                    if (m.get("competition") or {}).get("name") == league_filter
+                ]
 
-fixtures = st.session_state.raw_fixtures
-history = st.session_state.raw_history
+            comp_ids = sorted({
+                (m.get("competition") or {}).get("id")
+                for m in day_matches
+                if (m.get("competition") or {}).get("id") is not None
+            })
 
-if fixtures:
-    league_map = {"Tüm Ligler": None}
-    for f in fixtures:
-        lname = (f.get("league") or {}).get("name") or f"Lig #{f.get('league_id')}"
-        league_map[lname] = f.get("league_id")
+            hist_start = target - timedelta(days=history_days)
+            hist_end = target - timedelta(days=1)
 
-    f1, f2 = st.columns([1.4,2.6])
-    with f1:
-        league_name = st.selectbox("Lig filtresi", list(league_map.keys()))
-    with f2:
-        st.markdown(
-            f'<div class="notice">Kapsam: <b>{history_days} gün</b> • '
-            f'takım başına <b>{sample_size}</b> maç • minimum takım örneği <b>{min_data}</b></div>',
-            unsafe_allow_html=True
-        )
+            history = []
+            if comp_ids:
+                history = cached_history(
+                    token,
+                    hist_start.isoformat(),
+                    hist_end.isoformat(),
+                    tuple(comp_ids)
+                )
 
-    selected_league = league_map[league_name]
-    filtered = [
-        f for f in fixtures
-        if selected_league is None or f.get("league_id") == selected_league
-    ]
+            idx = build_history_index(history)
+            rows = []
 
-    idx = build_history_index(history)
-    rows = []
+            for m in day_matches:
+                if analysis_type == "En Güçlü Market":
+                    r = strongest_market(m, idx, sample_size)
+                else:
+                    r = analyze_fixture(m, idx, analysis_type, sample_size)
 
-    for f in filtered:
-        if market_choice == "En Güçlü Market":
-            candidates = []
-            for m in MARKETS:
-                r = analyze_fixture(f, idx, m, sample_size)
-                if r and r["sample_count"] >= min_data * 2:
-                    candidates.append(r)
-            if candidates:
-                best = max(candidates, key=lambda x: x["probability"])
-                if best["probability"] >= min_prob:
-                    rows.append(best)
-        else:
-            r = analyze_fixture(f, idx, market_choice, sample_size)
-            if r and r["sample_count"] >= min_data * 2 and r["probability"] >= min_prob:
+                if not r:
+                    continue
+                if r["sample_count"] < min_team_sample * 2:
+                    continue
+                if r["probability"] < min_prob:
+                    continue
                 rows.append(r)
 
-    rows.sort(key=lambda x: x["probability"], reverse=True)
-    rows = rows[:top_n]
+            rows.sort(key=lambda x: x["probability"], reverse=True)
 
-    m1,m2,m3,m4 = st.columns(4)
-    m1.metric("Günün maçı", len(fixtures))
-    m2.metric("Filtrelenen", len(filtered))
-    m3.metric("Geçmiş maç", len(history))
-    m4.metric("Uygun aday", len(rows))
+            st.session_state["results_v4"] = {
+                "target": target.isoformat(),
+                "matches": day_matches,
+                "history": history,
+                "rows": rows[:top_n],
+                "all_rows": rows,
+                "league_filter": league_filter,
+                "analysis_type": analysis_type,
+            }
 
-    title = "En Güçlü Marketler" if market_choice == "En Güçlü Market" else f"{market_choice} Adayları"
-    st.markdown(f'<div class="section">{title}</div>', unsafe_allow_html=True)
+    except FootballDataError as e:
+        st.error(str(e))
+        st.stop()
+
+data = st.session_state.get("results_v4")
+if data:
+    rows = data["rows"]
+    day_matches = data["matches"]
+    history = data["history"]
+
+    a,b,c,d = st.columns(4)
+    a.metric("Günün maçı", len(day_matches))
+    b.metric("API lig kapsamı", len(competitions))
+    c.metric("Geçmiş maç", len(history))
+    d.metric("Uygun aday", len(data["all_rows"]))
+
+    # Compact league chips
+    visible_leagues = []
+    for m in day_matches:
+        name = (m.get("competition") or {}).get("name")
+        if name and name not in visible_leagues:
+            visible_leagues.append(name)
+    if visible_leagues:
+        chips = "".join(f'<span class="league-chip">{escape(x)}</span>' for x in visible_leagues[:12])
+        st.markdown(f'<div class="league-strip">{chips}</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">⭐ En Güçlü Marketler</div>', unsafe_allow_html=True)
+    st.caption("Olasılık yüksekten düşüğe sıralanır. Takım adları ve armalar doğrudan canlı API’den gelir.")
 
     if not rows:
-        st.info("Bu filtrelerde yeterli aday bulunamadı. Minimum olasılığı veya minimum örnek değerini düşürebilirsin.")
+        st.warning(
+            "Bu filtrelerle yeterli veri/olasılık bulunamadı. "
+            "Minimum olasılığı düşürmeyi veya takım örneğini azaltmayı dene."
+        )
     else:
         for i,r in enumerate(rows,1):
-            if r["probability"] >= 82:
-                conf = "Çok güçlü"
-            elif r["probability"] >= 75:
-                conf = "Güçlü"
-            elif r["probability"] >= 68:
-                conf = "Orta"
-            else:
-                conf = "Sınırda"
+            pct = max(0, min(100, r["probability"]))
+            hc = crest_html(r["home_crest"], r["home"])
+            ac = crest_html(r["away_crest"], r["away"])
 
-            st.markdown(
-                f"""
-                <div class="match-card">
-                    <div class="rank">#{i} • {r['league']} • {r['kickoff']}</div>
-                    <div class="match">{r['home']} — {r['away']}</div>
-                    <div class="prob">%{r['probability']:.0f}
-                        <span class="badge">{r['market']}</span>
-                        <span class="badge">{conf}</span>
+            st.markdown(f"""
+            <div class="match-card">
+              <div class="mc-top">
+                <div>#{i} • <b>{escape(r["league"])}</b> • {escape(r["kickoff"])}</div>
+                <div class="mc-rank">#{i}</div>
+              </div>
+
+              <div class="mc-main">
+                <div class="teams">
+                  <div class="team">
+                    {hc}
+                    <div>
+                      <div class="team-name">{escape(r["home_short"])}</div>
+                      <div class="team-country">{escape(r["country"])}</div>
                     </div>
-                    <div class="meta">Takım-maç örneği: {r['sample_count']}</div>
+                  </div>
+                  <div class="vs">VS</div>
+                  <div class="team right">
+                    <div>
+                      <div class="team-name">{escape(r["away_short"])}</div>
+                      <div class="team-country">{escape(r["country"])}</div>
+                    </div>
+                    {ac}
+                  </div>
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
-            with st.expander("Analiz detayı"):
-                st.write(r["explanation"])
+
+                <div class="pickbox">
+                  <div>
+                    <div style="font-size:.7rem;color:#708092;font-weight:800">TAHMİN</div>
+                    <div class="prob">%{r["probability"]:.0f}</div>
+                    <div class="market">{escape(r["market"])}</div>
+                  </div>
+                  <div class="conf">{escape(r["confidence"])}</div>
+                  <div class="bar"><span style="width:{pct:.0f}%"></span></div>
+                </div>
+              </div>
+
+              <div class="stats">
+                <div class="stat"><div class="k">Takım-maç örneği</div><div class="v">{r["sample_count"]}</div></div>
+                <div class="stat"><div class="k">Ort. toplam gol</div><div class="v">{r["avg_goals"]:.2f}</div></div>
+                <div class="stat"><div class="k">KG oranı</div><div class="v">%{r["btts_rate"]:.0f}</div></div>
+                <div class="stat"><div class="k">2.5 Üst oranı</div><div class="v">%{r["over25_rate"]:.0f}</div></div>
+              </div>
+
+              <div class="card-note">Veri: son maç formu + ev/deplasman eğilimi + örneklem güveni</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.expander(f"Analiz detayı • {r['home_short']} - {r['away_short']}"):
+                x1,x2,x3 = st.columns(3)
+                x1.metric("Ev sahibi market formu", f"%{r['home_form']:.0f}")
+                x2.metric("Deplasman market formu", f"%{r['away_form']:.0f}")
+                x3.metric("Model sonucu", f"%{r['probability']:.0f}")
                 st.json(r["components"])
 
     st.divider()
-    st.caption(
-        "Model; son maç market gerçekleşmeleri, iç/deplasman davranışı ve örneklem güvenini "
-        "birleştirir. Yüzdeler istatistiksel olasılık tahminidir, garanti sonuç değildir."
-    )
-
-elif st.session_state.last_date:
-    st.warning("Seçilen tarihte erişilebilir liglerde maç bulunamadı.")
-else:
-    st.info("Bugün / Yarın seç, analiz türünü belirle ve **Taramayı Başlat**.")
-
-st.markdown(
-    '<div class="notice" style="margin-top:18px">'
-    '<b>Veri kapsamı notu:</b> Sportmonks Free plan yalnızca Danish Superliga ve '
-    'Scottish Premiership sunar. Premier League, Championship, Süper Lig vb. için '
-    'ücretli lig erişimi gerekir.'
-    '</div>',
-    unsafe_allow_html=True
-)
+    with st.expander(f"🌍 API hesabında görünen tüm ligler ({len(competitions)})"):
+        cols = st.columns(3)
+        for n,name in enumerate(competition_names):
+            cols[n % 3].write("• " + name)

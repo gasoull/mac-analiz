@@ -1,19 +1,16 @@
-# ONUR By Tahmin v5.1 — Sade Maçkolik Tarzı
+# ONUR ANALİZ — Canlı Maç Merkezi
 
-Bu sürümde veri motoru Maçkolik olarak kalır, tasarım sadeleştirilmiştir.
+Bu klasör, daha sade bir canlı skor ve maç listesi uygulamasıdır. Varsayılan olarak ESPN'in herkese açık ancak resmî destek/garanti sunmayan skor uç noktalarını kullanır. API anahtarı gerekmez.
 
-## Tasarım
-- Beyaz / açık gri arayüz
-- Kırmızı vurgu
-- Büyük banner kaldırıldı
-- İnce üst marka çubuğu
-- Daha kompakt maç kartları
-- Daha az görsel kalabalık
+## Streamlit Cloud
+1. GitHub deposunda `app.py` ve `requirements.txt` dosyalarını güncelleyin (önce eski dosyaları yedekleyin).
+2. Streamlit Cloud uygulama ayarlarında Main file path `app.py` olsun.
+3. Deploy/Reboot yapın.
 
-## Dosyalar
-- app.py
-- mackolik.py
-- analyzer.py
-- requirements.txt
+## Özellikler
+- Günlük maçlar ve lig grupları
+- Canlı skor, maç durumu ve takım araması
+- Otomatik yenileme (60 sn) ve manuel yenileme
+- Maç detay linki, Türkiye saati
 
-API anahtarı gerekmez.
+Not: ESPN maç kapsamı Maçkolik ile aynı değildir. Maç tahminleri bu sürüme eklenmemiştir. Üçüncü taraf API zaman zaman erişilemez olabilir.
